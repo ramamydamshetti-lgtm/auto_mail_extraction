@@ -136,8 +136,18 @@
       <thead>
         <tr>
           <th style="width: 40px; text-align: center;"><input type="checkbox" /></th>
-          <th>REQUIREMENT ID</th>
+          <th>
+            {% set next_req_order = 'asc' if (sort == 'req_id' and order == 'desc') else 'desc' %}
+            <a href="?q={{ q }}&client={{ client }}&status={{ status }}&sort=req_id&order={{ next_req_order }}&page=1" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+              REQUIREMENT ID
+              {% if sort == 'req_id' or not sort or sort == 'default' %}
+                {% if order == 'asc' %}▲{% else %}▼{% endif %}
+              {% endif %}
+            </a>
+          </th>
           <th>CLIENT NAME</th>
+
+
           <th>CLIENT EMAIL ID</th>
           <th>ROLE</th>
           <th>PRIORITY</th>

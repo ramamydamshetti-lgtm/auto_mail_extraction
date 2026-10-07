@@ -34,9 +34,12 @@ FIELD_ALIASES: dict[str, str] = {
     "total exp": "experience",
     "relevant exp": "experience",
     "overall exp": "experience",
+    "over all exp": "experience",
     "overall experience": "experience",
+    "over all experience": "experience",
     "years": "experience",
     "years of experience": "experience",
+    "years of exp": "experience",
     "level": "experience",
 
     # Work Mode
@@ -67,6 +70,10 @@ FIELD_ALIASES: dict[str, str] = {
     "pay rate": "budget",
     "hourly rate": "budget",
     "bill rate": "budget",
+    "bill rate per month": "budget",
+    "bill rate per month for tpc": "budget",
+    "rate / pm": "budget",
+    "rate / pm (inr)": "budget",
 
     # Location
     "location": "location",

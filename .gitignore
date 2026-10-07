@@ -58,5 +58,6 @@ today_fetch*
 latest_500_all.*
 extractions.csv
 *.pdf
-scratch/*.json
-scratch/*.txt
+scratch/
+scratch_*.py
+

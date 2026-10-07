@@ -18,6 +18,8 @@ _CLIENT_SPECS: list[tuple[str, str, tuple[str, ...]]] = [
     ("ust", "UST", ("ust global", "ust")),
     ("ltts", "LTTS", ("ltts", "l&t technology", "l and t technology")),
     ("accenture", "Accenture", ("accenture",)),
+    ("pwc", "PwC", ("pwc", "pricewaterhouse", "pricewaterhousecoopers")),
+    ("deloitte", "Deloitte", ("deloitte",)),
     ("qbrainx", "QBrainX", ("qbrainx", "q brainx", "qbrain x")),
     ("brillio", "Brillio", ("brillio",)),
     ("happiest_minds", "Happiest Minds", ("happiest minds", "happiestminds")),
@@ -201,6 +203,16 @@ def detect_client(subject: str, body: str, from_email: str) -> ClientMatch | Non
                     key=unres.get("key", "idexcel_unresolved"),
                     display_name=unres.get("display_name", "unresolved"),
                 )
+
+        # If text explicitly names a supported client, prioritize that over generic domain defaults
+        blob = search_text.lower()
+        for key, display, needles in _CLIENT_SPECS:
+            for n in needles:
+                n = n.strip()
+                if len(n) > 4 and n in blob:
+                    return ClientMatch(key=key, display_name=display)
+                elif len(n) <= 4 and re.search(rf"\b{re.escape(n)}\b", blob):
+                    return ClientMatch(key=key, display_name=display)
 
         if domain in domain_map:
             c_name = domain_map[domain]

@@ -102,13 +102,28 @@ def send_graph_alert_email(
     """
     Send an operational alert email using the Microsoft Graph API.
     Reuses existing Azure OAuth2 client credentials from Settings.
+    
+    STRICT USER POLICY:
+    The system is strictly an extraction-only pipeline.
+    It MUST NEVER send any emails from or to recruitment.application@metaforgeit.com.
     """
+    clean_target = (to_email or "").strip().lower()
+    if not clean_target or "recruitment.application@metaforgeit.com" in clean_target:
+        _LOG.warning("Outbound email to '%s' strictly blocked by extraction-only policy.", to_email)
+        return False, "Outbound email to recruitment.application@metaforgeit.com is strictly prohibited."
+
+    if not getattr(settings, "outbound_email_enabled", False):
+        _LOG.info(
+            "Outbound email sending blocked by policy (extraction-only mode). Subject: '%s', Target: '%s'",
+            subject,
+            to_email,
+        )
+        return False, "Outbound email sending is permanently disabled (extraction-only policy)."
+
     if not (settings.azure_tenant_id and settings.azure_client_id and settings.azure_client_secret):
         return False, "Azure credentials missing in Settings"
     if not settings.mailbox_upn:
         return False, "Mailbox UPN missing in Settings"
-    if not to_email:
-        return False, "Target recipient email is empty"
 
     try:
         token = _token_client_credentials(
@@ -149,6 +164,8 @@ def send_graph_alert_email(
         return False, f"Graph API returned status {resp.status_code}: {resp.text[:300]}"
     except Exception as exc:
         return False, f"HTTP request failed: {exc}"
+
+
 
 
 def build_alert_email_body(
@@ -258,8 +275,16 @@ class AlertManager:
         sanitized_details = sanitize_alert_details(details or {})
         recipient = self.settings.alert_recipient_email or self.settings.mailbox_upn
 
+        if self.custom_sender is None and not getattr(self.settings, "outbound_email_enabled", False):
+            _LOG.info(
+                "Alert '%s' blocked: Outbound email sending is permanently disabled (extraction-only mode).",
+                a_type,
+            )
+            return False, "skipped: outbound email disabled by policy"
+
         cooldown = cooldown_seconds if cooldown_seconds is not None else self.settings.alert_cooldown_seconds
         d_key = dedup_key or a_type
+
 
         # Duplicate suppression check (recovery alerts bypass suppression)
         if a_type != AlertType.SCHEDULER_HEARTBEAT_RECOVERED.value and cooldown > 0:

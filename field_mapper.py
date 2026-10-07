@@ -30,7 +30,7 @@ _LPA_RE = re.compile(
     re.IGNORECASE,
 )
 _LPM_RE = re.compile(
-    r"(?P<low>\d+(?:\.\d+)?)\s*(?:-|to|–|—)?\s*(?P<high>\d+(?:\.\d+)?)?\s*lpm",
+    r"(?:inr|rs\.?)?\s*(?P<low>\d+(?:\.\d+)?)\s*(?:[Ll](?:akhs?)?)?(?:\s*/\s*[Mm](?:onth)?)?\s*(?:-|to|–|—)\s*(?:inr|rs\.?)?\s*(?P<high>\d+(?:\.\d+)?)\s*(?:[Ll](?:akhs?)?)(?:\s*/\s*[Mm](?:onth)?|lpm|\b)",
     re.IGNORECASE,
 )
 _USD_RE = re.compile(
@@ -39,7 +39,7 @@ _USD_RE = re.compile(
 )
 _EUR_RE = re.compile(r"(?i)\b(?:€|eur)\s*(?P<n>\d+(?:\.\d+)?)")
 _INR_RE = re.compile(r"(?i)\b(?:₹|inr)\s*(?P<n>\d+(?:\.\d+)?)")
-_SKILL_LINE_RE = re.compile(r"(?im)^\s*(?:skill|skills|mandatory skills?)\s*[:\-]\s*(.+)$")
+_SKILL_LINE_RE = re.compile(r"(?im)^\s*(?:skill|skills|mandatory\s*(?:technical\s*)?skills?|must\s*(?:to\s*)?have\s*(?:technical\s*)?skills?|primary\s*skills?)\s*[:\-]\s*(.+)$")
 _EXP_RE = re.compile(r"(?i)\b(\d{1,2}\s*[-–]\s*\d{1,2}|\d{1,2}\+?)\s*(?:years?|yrs?)\b")
 _JD_SECTION_RE = re.compile(
     r"(?is)(?:job description\s*[:\-]\s*)(?P<jd>.+?)(?:\n\s*qualifications?\s*[:\-]|\Z)"
@@ -256,12 +256,20 @@ def _extract_skills_from_text(text: str) -> tuple[str | None, str | None]:
 
     # Explicit "Skill:" line
     for m in _SKILL_LINE_RE.finditer(text):
-        for token in re.split(r",|/|\|", m.group(1)):
-            t = token.strip(" .-")
-            if t:
-                # explicit "Skill:" lines are typically strict filters in client mails
-                mandatory.append(t)
-                skills.append(t)
+        raw_val = m.group(1).strip().rstrip(".")
+        chunks = re.split(r"(?:[,\n;/|•*]|\s+&\s+|\s+and\s+)+", raw_val)
+        for c in chunks:
+            c = c.strip(" .:-–—\t")
+            if not c:
+                continue
+            sub_tokens = re.split(r"\s+(?=(?:C\+\+|Rust|C#|Python|Java|React|Go|Golang)\b)|\s+[-–—]\s+", c, flags=re.I)
+            for st in sub_tokens:
+                st = st.strip(" :-–—\t").rstrip(".")
+                if not st.lower().startswith(".net"):
+                    st = st.lstrip(".")
+                if st and len(st) > 1:
+                    mandatory.append(st)
+                    skills.append(st)
 
     # Pattern-based extraction for automotive JD-style emails.
     for pat, label in _MANDATORY_PATTERNS:
@@ -274,39 +282,27 @@ def _extract_skills_from_text(text: str) -> tuple[str | None, str | None]:
 
     # Job description bullet-ish lines and strong requirements
     for ln in jd_block.splitlines():
-        s = ln.strip().strip("-*")
+        s = ln.strip().strip("-*•· ")
         if not s:
             continue
         low = s.lower()
         if len(s) > 120:
             continue
+        if re.search(r"(?i)^(?:position|title|job title|role|work location|location|bill rate|budget|overall exp|over all exp|total exp|open positions?|qualification|mandatory\s*(?:technical\s*)?skills?|technical\s*skills?)\b", s):
+            continue
         if any(k in low for k in ("must", "mandatory", "should have", "hands on", "strong in")):
             mandatory.append(s)
-        if any(
-            k in low
-            for k in (
-                "python",
-                "java",
-                "aws",
-                "azure",
-                "sap",
-                "sql",
-                "react",
-                "databricks",
-                "pyspark",
-                "nx",
-                "biw",
-                "cad",
-                "closures",
-                "door",
-                "daimler",
-                "interference",
-                "packaging",
-                "benchmark",
-                "styling",
-            )
-        ):
-            skills.append(s)
+
+    # Technology chip tags from JD
+    tech_tags = (
+        "Python", "Docker", "GitLab", "Jira", "Linux", "LAN", "Cyber Security",
+        "Rust", "C++", "C#", "React", "Angular", "Node.js", "Java", "Spring Boot",
+        "AWS", "Azure", "GCP", "SQL", "Kafka", "Microservices", "SAP", "ABAP",
+        "Snowflake", "Databricks", "PLC", "DCS", "Emerson DeltaV", "DeltaV", "Automation",
+    )
+    for tag in tech_tags:
+        if re.search(r"\b" + re.escape(tag) + r"\b", jd_block, re.I):
+            skills.append(tag)
 
     def _dedup(xs: list[str]) -> list[str]:
         out: list[str] = []
@@ -342,8 +338,14 @@ def parse_budget_fields(budget_text: str | None) -> dict[str, Any]:
     Derive display budget and optional INR LPA numeric range from free text.
     """
     raw = (budget_text or "").strip()
+    # Sanitize initial display: only use raw if it's a short, plausible budget note, NOT an email body
+    is_body_like = (
+        len(raw) > 80
+        or "\n" in raw
+        or any(w in raw.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner", "submission", "resume", "pls ensure", "subject line"))
+    )
     out: dict[str, Any] = {
-        "budget_display": raw or None,
+        "budget_display": None if is_body_like else (raw or None),
         "budget_currency": None,
         "budget_inr_lpa_min": None,
         "budget_inr_lpa_max": None,
@@ -363,6 +365,7 @@ def parse_budget_fields(budget_text: str | None) -> dict[str, Any]:
         out["budget_inr_lpa_min"] = int(min(low, high) * 100000)
         out["budget_inr_lpa_max"] = int(max(low, high) * 100000)
         out["budget_period"] = "yearly"
+        out["budget_display"] = f"{int(max(low, high)) if max(low, high).is_integer() else max(low, high)} LPA"
         return out
 
     m_lpm = _LPM_RE.search(raw)
@@ -374,6 +377,10 @@ def parse_budget_fields(budget_text: str | None) -> dict[str, Any]:
         out["budget_inr_lpm_min"] = int(min(low, high) * 100000)
         out["budget_inr_lpm_max"] = int(max(low, high) * 100000)
         out["budget_period"] = "monthly"
+        if abs(low - high) < 1e-6:
+            out["budget_display"] = f"INR {int(low * 100000):,}/month"
+        else:
+            out["budget_display"] = f"INR {int(min(low, high) * 100000):,} - {int(max(low, high) * 100000):,}/month"
         return out
 
     # Tiered budget rates (e.g. Bill Rate per month for TPC... or Tiered Budget Rates...)
@@ -391,6 +398,16 @@ def parse_budget_fields(budget_text: str | None) -> dict[str, Any]:
                 m_rate = re.search(r"^(.+?\b(?:\d+(?:\.\d+)?\s*(?:[Ll]|[Kk]|Lakhs?|INR|Rs\.?)|Open\s*Budget))\b", l, re.I)
                 cleaned_line = m_rate.group(1).strip() if m_rate else l
                 cleaned_tiers.append(cleaned_line)
+        vals = []
+        for l in lines:
+            for kv, lv in re.findall(r"(?:(\d+(?:\.\d+)?)\s*k\b|(\d+(?:\.\d+)?)\s*(?:l\b|lakhs?))", l, re.I):
+                if kv:
+                    vals.append(int(float(kv) * 1000))
+                elif lv:
+                    vals.append(int(float(lv) * 100000))
+        if vals:
+            out["budget_inr_lpm_min"] = min(vals)
+            out["budget_inr_lpm_max"] = max(vals)
         if cleaned_tiers:
             summary = " / ".join(cleaned_tiers)
             out["budget_display"] = summary
@@ -400,7 +417,21 @@ def parse_budget_fields(budget_text: str | None) -> dict[str, Any]:
 
     clean_raw = re.sub(r"(?<=\d),(?=\d)", "", raw)
     low_raw = clean_raw.lower()
-    is_monthly = bool(re.search(r"(?i)\b(?:per\s+month|/month|p\.?m\.?|monthly|bill\s+rate|rate\s*/\s*pm|tpc\s+rates?)\b", clean_raw))
+    is_monthly = bool(re.search(r"(?i)\b(?:per\s+month|/month|p\.?m\.?|monthly|bill\s+rate|rate\s*/\s*pm|rate\s*card|tpc\s+rates?)\b", clean_raw))
+
+    # Explicit Monthly Rate Card pattern (e.g. Monthly rate card- 120000, Monthly rate card- 175000)
+    m_rate_card = re.search(
+        r"(?i)\b(?:monthly\s+rate\s+card|rate\s*card|monthly\s*rate)\s*[:\-–]?\s*(\d{4,7})\b",
+        clean_raw
+    )
+    if m_rate_card:
+        val = int(m_rate_card.group(1))
+        out["budget_currency"] = "INR"
+        out["budget_inr_lpm_min"] = val
+        out["budget_inr_lpm_max"] = val
+        out["budget_period"] = "monthly"
+        out["budget_display"] = f"INR {val:,}/month"
+        return out
 
     # Range pattern (e.g. 75000-80000 max, 200000-250000 max)
     m_range = re.search(r"(\d{5,7})\s*(?:-|to|–|—)\s*(\d{5,7})", clean_raw)
@@ -446,7 +477,7 @@ def parse_budget_fields(budget_text: str | None) -> dict[str, Any]:
     # Require either a keyword prefix (rate/budget) OR an explicit monthly suffix (/month, pm), or a standalone number
     m_monthly = re.search(
         r"(?i)(?:"
-        r"(?:tpc\s+rates?|rate\s*/\s*pm|monthly\s+budget|bill\s+rate(?:\s+per\s+month)?(?:\s+for\s+tpc)?(?:\s*\([^)]*\))?|rate)\s*[:\-–]?\s*(\d{5,7})(?:\s*(?:/\s*m(?:onth)?|per\s+month|pm))?"
+        r"(?:tpc\s+rates?|rate\s*/\s*pm|monthly\s+budget|monthly\s+rate\s+card|rate\s*card|monthly\s*rate|bill\s+rate(?:\s+per\s+month)?(?:\s+for\s+tpc)?(?:\s*\([^)]*\))?|rate)\s*[:\-–]?\s*(\d{5,7})(?:\s*(?:/\s*m(?:onth)?|per\s+month|pm))?"
         r"|(\d{5,7})\s*(?:/\s*m(?:onth)?|per\s+month|pm)"
         r"|^\s*(\d{5,7})\s*$"
         r")",
@@ -816,6 +847,11 @@ def map_to_metaforge(
 
     # Rule 1: Headcount / Number of positions (None if not specified)
     n_pos = extracted.get("number_of_positions") or extracted.get("positions") or extracted.get("open_positions") or extracted.get("headcount")
+    if (n_pos is None or is_placeholder(n_pos)) and body_text:
+        m_pos = re.search(r"(?i)\b(?:open\s*positions?|positions?|openings?|headcount|no\.?\s*(?:of\s*)?positions?)\b\s*[:\-–—|]\s*(\d{1,3})\b", body_text)
+        if m_pos:
+            n_pos = m_pos.group(1)
+
     n_int = None
     if n_pos is not None and not is_placeholder(n_pos):
         try:
@@ -842,15 +878,20 @@ def map_to_metaforge(
     )
     extracted_soft_list = _as_list(extracted_soft)
 
-    if not is_strict_field_mapping():
-        if not extracted_mand_list and not extracted_soft_list:
-            fallback_mand, fallback_skills = _extract_skills_from_text(body_text)
-            if fallback_mand:
-                extracted_mand_list = _as_list(fallback_mand)
-            if fallback_skills:
-                extracted_soft_list = _as_list(fallback_skills)
+    if not extracted_mand_list and not extracted_soft_list:
+        fallback_mand, fallback_skills = _extract_skills_from_text(body_text)
+        if fallback_mand:
+            extracted_mand_list = _as_list(fallback_mand)
+        if fallback_skills:
+            extracted_soft_list = _as_list(fallback_skills)
 
     job_title = str(extracted.get("job_title") or extracted.get("role") or extracted.get("title") or "").strip() or None
+    if not job_title and body_text:
+        m_jt = re.search(r"(?im)^\s*(?:position\s*/\s*title|position|job\s*title|role)\s*[:\-]\s*(.+)$", body_text)
+        if m_jt:
+            jt_cand = m_jt.group(1).strip()
+            if jt_cand and not is_placeholder(jt_cand):
+                job_title = jt_cand
 
     experience_raw = str(
         extracted.get("overall_experience")
@@ -860,6 +901,13 @@ def map_to_metaforge(
         or extracted.get("exp")
         or ""
     ).strip() or None
+    if not experience_raw and body_text:
+        m_exp = re.search(r"(?i)\b(?:overall\s*exp(?:erience)?|over\s*all\s*exp(?:erience)?|total\s*exp(?:erience)?|years\s*of\s*exp(?:erience)?)\b\s*[:\-]\s*([^\n\r]+)", body_text)
+        if m_exp:
+            exp_val = m_exp.group(1).strip()
+            if exp_val and not is_placeholder(exp_val):
+                experience_raw = exp_val
+
     exp_level = derive_experience_level_from_text_or_years(
         experience_raw, str(extracted.get("experience_level") or "")
     )
@@ -868,6 +916,12 @@ def map_to_metaforge(
 
     # Location: preserve all locations if multiple
     raw_loc = extracted.get("location") or extracted.get("job_location") or extracted.get("work_location") or extracted.get("base_location") or extracted.get("city")
+    if not raw_loc and body_text:
+        m_loc = re.search(r"(?im)^\s*(?:work\s*location|location|job\s*location|base\s*location)\s*[:\-]\s*(.+)$", body_text)
+        if m_loc:
+            loc_cand = m_loc.group(1).strip()
+            if loc_cand and not is_placeholder(loc_cand):
+                raw_loc = loc_cand
     def _is_generic_raw_loc(s: Any) -> bool:
         low = str(s).strip("[]'\" ").lower()
         return any(g in low for g in ("client location", "client site", "client office", "any ltts", "any office", "any location", "pan india"))
@@ -981,6 +1035,13 @@ def format_metaforge_requirement(
         or ""
     ).strip() or None
 
+    if budget_raw and (
+        len(budget_raw) > 80
+        or "\n" in budget_raw
+        or any(w in budget_raw.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner", "submission", "resume", "pls ensure", "subject line"))
+    ):
+        budget_raw = None
+
     parsed_b = parse_budget_fields(budget_raw or body_text or "")
     if not budget_raw and parsed_b.get("budget_display"):
         budget_raw = parsed_b.get("budget_display")
@@ -1020,6 +1081,15 @@ def format_metaforge_requirement(
             monthly_budget_max = mb_val
 
     monthly_budget = monthly_budget_max if monthly_budget_max is not None else monthly_budget_min
+
+    # Ensure budget_raw is clean and never an email dump
+    if not budget_raw or len(str(budget_raw)) > 80 or "\n" in str(budget_raw) or any(w in str(budget_raw).lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner")):
+        if monthly_budget is not None:
+            budget_raw = f"{monthly_budget:,} / month" if isinstance(monthly_budget, int) else f"{monthly_budget} / month"
+        elif yearly_budget is not None:
+            budget_raw = f"{yearly_budget} LPA"
+        else:
+            budget_raw = None
 
     # Rule 4: Experience level alignment
     exp_level = derive_experience_level_from_text_or_years(

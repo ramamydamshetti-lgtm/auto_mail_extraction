@@ -398,6 +398,21 @@ class ProcessedStore:
         )
         self._conn.commit()
 
+    def _get_sibling_metaforge_db(self, override_path: Path | str | None = None) -> Path | None:
+        if override_path:
+            p = Path(override_path)
+            return p if p.exists() else None
+        p = self.path.parent / "metaforge_requirements.db"
+        if p.exists():
+            return p
+        test_mf = self.path.parent / "test_metaforge.db"
+        if test_mf.exists():
+            return test_mf
+        data_p = Path(__file__).resolve().parent / "data" / "metaforge_requirements.db"
+        if data_p.exists() and self.path.parent.resolve() == data_p.parent.resolve():
+            return data_p
+        return None
+
     def find_requirement_duplicate(
         self,
         profile: dict[str, Any],
@@ -471,9 +486,6 @@ class ProcessedStore:
                 if best_possible is None or score > best_possible[1]:
                     best_possible = (cand, score, rule)
 
-        if best_possible:
-            return ("POSSIBLE_DUPLICATE", best_possible[0], best_possible[1], best_possible[2])
-
         # Unified self-healing store lookup (Rules N1 & A4):
         # A requirement is NEW only if absent from EVERY store:
         # requirement_identity, client_requirements, metaforge_requirements, pending_reviews, duplicates_archive.
@@ -484,8 +496,8 @@ class ProcessedStore:
         if cjd:
             try:
                 cur_cr = self._conn.execute(
-                    "SELECT client_jd_id, requirement_from, status, payload_json FROM client_requirements WHERE client_jd_id = ?",
-                    (cjd,),
+                    "SELECT client_jd_id, requirement_from, status, payload_json FROM client_requirements WHERE client_jd_id = ? OR json_extract(payload_json, '$.client_jd_id') = ?",
+                    (cjd, cjd),
                 )
                 for cr_row in cur_cr.fetchall():
                     cr_from = (cr_row[1] or "").strip().lower()
@@ -520,18 +532,14 @@ class ProcessedStore:
                 pass
 
         # 2. Check metaforge_requirements (sibling metaforge_requirements.db or test_metaforge.db)
-        mf_path = self.path.parent / "metaforge_requirements.db"
-        if not mf_path.exists():
-            test_mf = self.path.parent / "test_metaforge.db"
-            if test_mf.exists():
-                mf_path = test_mf
-        if mf_path.exists():
+        mf_path = self._get_sibling_metaforge_db()
+        if mf_path and mf_path.exists():
             try:
                 conn_mf = sqlite3.connect(f"file:{mf_path}?mode=ro", uri=True)
                 if cjd:
                     cur_mf = conn_mf.execute(
-                        "SELECT job_id, client_jd_id, payload_json FROM metaforge_requirements WHERE client_jd_id = ?",
-                        (cjd,),
+                        "SELECT job_id, client_jd_id, payload_json FROM metaforge_requirements WHERE client_jd_id = ? OR json_extract(payload_json, '$.client_jd_id') = ?",
+                        (cjd, cjd),
                     )
                     for mf_row in cur_mf.fetchall():
                         orig_ref = mf_row[0]
@@ -663,6 +671,9 @@ class ProcessedStore:
                         return ("DUPLICATE", da_cand, 1.0, f"DUPLICATES_ARCHIVE_MATCH ({cjd})")
             except Exception:
                 pass
+
+        if best_possible:
+            return ("POSSIBLE_DUPLICATE", best_possible[0], best_possible[1], best_possible[2])
 
         return ("NOT_DUPLICATE", None, 0.0, "NO_MATCHING_CANDIDATE")
 
@@ -797,45 +808,162 @@ class ProcessedStore:
             for r in rows
         ]
 
-    def find_requirement_by_conversation_id(self, conversation_id: str) -> tuple[str, dict] | None:
+    def find_requirements_by_conversation_id(self, conversation_id: str) -> list[tuple[str, dict]]:
+        """Return all stored requirements belonging to an Outlook conversation ID."""
         import json
-
         cid = str(conversation_id or "").strip()
         if not cid:
-            return None
-        # Search in requirement_memory first or client_requirements
-        cur = self._conn.execute(
-            """SELECT payload_json FROM requirement_memory ORDER BY created_at DESC"""
-        )
-        for (payload_str,) in cur.fetchall():
-            try:
-                p = json.loads(payload_str)
-                prov = p.get("_provenance", {})
-                if (
-                    prov.get("conversation_id") == cid
-                    or prov.get("graph_message_id") == cid
-                    or p.get("graphMessageId") == cid
-                ):
-                    req_id = p.get("client_jd_id") or p.get("job_id") or ""
-                    return req_id, p
-            except Exception:
-                continue
+            return []
+        results: list[tuple[str, dict]] = []
+        seen_refs: set[str] = set()
 
-        cur = self._conn.execute(
-            """SELECT client_jd_id, payload_json FROM client_requirements"""
-        )
-        for cjd, payload_str in cur.fetchall():
+        # 1. Search metaforge_requirements.db (primary source of truth)
+        mf_path = self._get_sibling_metaforge_db()
+        if mf_path and mf_path.exists():
             try:
-                p = json.loads(payload_str)
-                prov = p.get("_provenance", {})
-                if (
-                    prov.get("conversation_id") == cid
-                    or prov.get("graph_message_id") == cid
-                    or p.get("graphMessageId") == cid
-                ):
-                    return cjd, p
+                conn_mf = sqlite3.connect(mf_path)
+                cur_mf = conn_mf.execute("SELECT job_id, client_jd_id, payload_json FROM metaforge_requirements")
+                for jid, cjd, pstr in cur_mf.fetchall():
+                    try:
+                        p = json.loads(pstr)
+                        prov = p.get("_provenance", {}) if isinstance(p.get("_provenance"), dict) else {}
+                        if (
+                            prov.get("conversation_id") == cid
+                            or prov.get("graph_message_id") == cid
+                            or p.get("graphMessageId") == cid
+                            or p.get("conversationId") == cid
+                            or p.get("conversation_id") == cid
+                        ):
+                            ref = jid or cjd
+                            if ref and ref not in seen_refs:
+                                seen_refs.add(ref)
+                                results.append((ref, p))
+                    except Exception:
+                        continue
+                conn_mf.close()
             except Exception:
-                continue
+                pass
+
+        # 2. Search client_requirements
+        try:
+            cur = self._conn.execute("SELECT client_jd_id, payload_json FROM client_requirements")
+            for cjd, payload_str in cur.fetchall():
+                try:
+                    p = json.loads(payload_str)
+                    prov = p.get("_provenance", {}) if isinstance(p.get("_provenance"), dict) else {}
+                    if (
+                        prov.get("conversation_id") == cid
+                        or prov.get("graph_message_id") == cid
+                        or p.get("graphMessageId") == cid
+                        or p.get("conversationId") == cid
+                        or p.get("conversation_id") == cid
+                    ):
+                        ref = cjd or p.get("job_id")
+                        if ref and ref not in seen_refs:
+                            seen_refs.add(ref)
+                            results.append((ref, p))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # 3. Search requirement_memory
+        try:
+            cur = self._conn.execute("SELECT payload_json FROM requirement_memory ORDER BY created_at DESC")
+            for (payload_str,) in cur.fetchall():
+                try:
+                    p = json.loads(payload_str)
+                    prov = p.get("_provenance", {}) if isinstance(p.get("_provenance"), dict) else {}
+                    if (
+                        prov.get("conversation_id") == cid
+                        or prov.get("graph_message_id") == cid
+                        or p.get("graphMessageId") == cid
+                        or p.get("conversationId") == cid
+                        or p.get("conversation_id") == cid
+                    ):
+                        ref = p.get("job_id") or p.get("client_jd_id") or ""
+                        if ref and ref not in seen_refs:
+                            seen_refs.add(ref)
+                            results.append((ref, p))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        return results
+
+    def find_requirement_by_conversation_id(
+        self,
+        conversation_id: str,
+        title: str | None = None,
+        client_jd_id: str | None = None,
+    ) -> tuple[str, dict] | None:
+        """Find matching requirement in thread. If multiple exist, match by client_jd_id or title."""
+        reqs = self.find_requirements_by_conversation_id(conversation_id)
+        if not reqs:
+            return None
+        if len(reqs) == 1:
+            return reqs[0]
+        # Multi-role: match by client_jd_id if given
+        cjd_norm = str(client_jd_id or "").strip().lower()
+        if cjd_norm:
+            for ref, p in reqs:
+                cand_cjd = str(p.get("client_jd_id") or "").strip().lower()
+                if cand_cjd and cand_cjd == cjd_norm:
+                    return ref, p
+        # Match by title if given
+        title_norm = str(title or "").strip().lower()
+        if title_norm:
+            for ref, p in reqs:
+                cand_title = str(p.get("job_title") or "").strip().lower()
+                if cand_title and (cand_title in title_norm or title_norm in cand_title):
+                    return ref, p
+        return reqs[0]
+
+    def find_requirement_by_message_id(self, message_id: str) -> tuple[str, dict] | None:
+        """Find existing requirement by parent message ID (In-Reply-To or References)."""
+        import json
+        mid = str(message_id or "").strip()
+        if not mid:
+            return None
+        mid_clean = mid.strip("<>").strip()
+
+        # 1. Search metaforge_requirements.db
+        mf_path = self._get_sibling_metaforge_db()
+        if mf_path and mf_path.exists():
+            try:
+                conn_mf = sqlite3.connect(mf_path)
+                cur_mf = conn_mf.execute("SELECT job_id, client_jd_id, payload_json FROM metaforge_requirements")
+                for jid, cjd, pstr in cur_mf.fetchall():
+                    try:
+                        p = json.loads(pstr)
+                        prov = p.get("_provenance", {}) if isinstance(p.get("_provenance"), dict) else {}
+                        g_id = str(prov.get("graph_message_id") or p.get("graphMessageId") or "").strip()
+                        i_id = str(prov.get("internet_message_id") or p.get("internetMessageId") or "").strip().strip("<>")
+                        if mid == g_id or mid_clean == g_id or mid == i_id or mid_clean == i_id:
+                            conn_mf.close()
+                            return (jid or cjd), p
+                    except Exception:
+                        continue
+                conn_mf.close()
+            except Exception:
+                pass
+
+        # 2. Search client_requirements
+        try:
+            cur = self._conn.execute("SELECT client_jd_id, payload_json FROM client_requirements")
+            for cjd, payload_str in cur.fetchall():
+                try:
+                    p = json.loads(payload_str)
+                    prov = p.get("_provenance", {}) if isinstance(p.get("_provenance"), dict) else {}
+                    g_id = str(prov.get("graph_message_id") or p.get("graphMessageId") or "").strip()
+                    i_id = str(prov.get("internet_message_id") or p.get("internetMessageId") or "").strip().strip("<>")
+                    if mid == g_id or mid_clean == g_id or mid == i_id or mid_clean == i_id:
+                        return cjd, p
+                except Exception:
+                    continue
+        except Exception:
+            pass
         return None
 
     def find_requirement_by_req_id(self, req_id: str) -> tuple[str, dict] | None:
@@ -887,14 +1015,8 @@ class ProcessedStore:
                 continue
 
         # Check sibling metaforge_requirements.db or test_metaforge.db
-        mf_path = self.path.parent / "metaforge_requirements.db"
-        if not mf_path.exists():
-            test_mf = self.path.parent / "test_metaforge.db"
-            if test_mf.exists():
-                mf_path = test_mf
-            else:
-                mf_path = Path(__file__).resolve().parent / "data" / "metaforge_requirements.db"
-        if mf_path.exists():
+        mf_path = self._get_sibling_metaforge_db()
+        if mf_path and mf_path.exists():
             try:
                 conn_mf = sqlite3.connect(mf_path)
                 cur_mf = conn_mf.execute(
@@ -909,6 +1031,138 @@ class ProcessedStore:
                 conn_mf.close()
             except Exception:
                 pass
+        return None
+
+    def find_requirement_by_subject(self, subject: str) -> tuple[str, dict] | None:
+        """
+        Find existing requirement whose original email subject matches this email's subject
+        (stripping RE:, FW:, FWD: prefixes).
+        """
+        import re
+        import json
+        if not subject:
+            return None
+
+        def clean_subj(s: str) -> str:
+            cleaned = re.sub(r"(?i)^(?:re|fwd|fw)\s*:\s*", "", (s or "").strip())
+            while re.match(r"(?i)^(?:re|fwd|fw)\s*:\s*", cleaned):
+                cleaned = re.sub(r"(?i)^(?:re|fwd|fw)\s*:\s*", "", cleaned).strip()
+            return re.sub(r"\s+", " ", cleaned).strip().lower()
+
+        target_subj = clean_subj(subject)
+        if len(target_subj) < 5:
+            return None
+
+        # 1. Search metaforge_requirements.db
+        mf_path = self._get_sibling_metaforge_db()
+        if mf_path and mf_path.exists():
+            try:
+                conn_mf = sqlite3.connect(mf_path)
+                cur = conn_mf.execute("SELECT job_id, client_jd_id, payload_json FROM metaforge_requirements")
+                for jid, cjd, pstr in cur.fetchall():
+                    try:
+                        p = json.loads(pstr)
+                        s = p.get("subject") or p.get("email_subject") or ""
+                        if s and clean_subj(s) == target_subj:
+                            conn_mf.close()
+                            return (jid or cjd), p
+                    except Exception:
+                        continue
+                conn_mf.close()
+            except Exception:
+                pass
+
+        # 2. Search client_requirements
+        try:
+            cur = self._conn.execute("SELECT client_jd_id, payload_json FROM client_requirements")
+            for cjd, pstr in cur.fetchall():
+                try:
+                    p = json.loads(pstr)
+                    s = p.get("subject") or p.get("email_subject") or ""
+                    if s and clean_subj(s) == target_subj:
+                        return cjd, p
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # 3. Search requirement_memory
+        try:
+            cur = self._conn.execute("SELECT payload_json FROM requirement_memory ORDER BY created_at DESC")
+            for (pstr,) in cur.fetchall():
+                try:
+                    p = json.loads(pstr)
+                    s = p.get("subject") or p.get("email_subject") or ""
+                    if s and clean_subj(s) == target_subj:
+                        return (p.get("job_id") or p.get("client_jd_id") or ""), p
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        return None
+
+    def find_requirement_by_client_and_title(self, client: str, title: str) -> tuple[str, dict] | None:
+        """
+        Find existing requirement by client and fuzzy/token title match (>= 0.80).
+        """
+        import json
+        import difflib
+        from requirement_identity import normalize_identity_text, normalize_client_key
+        if not client or not title:
+            return None
+
+        norm_c = normalize_client_key(client)
+        norm_t = normalize_identity_text(title)
+        if len(norm_t) < 3:
+            return None
+
+        def title_match(t1: str, t2: str) -> bool:
+            if not t1 or not t2:
+                return False
+            if t1 == t2:
+                return True
+            seq = difflib.SequenceMatcher(None, t1, t2).ratio()
+            tok1 = set(t1.split())
+            tok2 = set(t2.split())
+            jacc = len(tok1 & tok2) / len(tok1 | tok2) if (tok1 and tok2) else 0.0
+            return max(seq, jacc) >= 0.80
+
+        mf_path = self._get_sibling_metaforge_db()
+        if mf_path and mf_path.exists():
+            try:
+                conn_mf = sqlite3.connect(mf_path)
+                cur = conn_mf.execute("SELECT job_id, client_jd_id, payload_json FROM metaforge_requirements")
+                for jid, cjd, pstr in cur.fetchall():
+                    try:
+                        p = json.loads(pstr)
+                        p_client = normalize_client_key(p.get("requirement_from") or p.get("client") or "")
+                        if p_client == norm_c:
+                            p_title = normalize_identity_text(p.get("job_title") or "")
+                            if title_match(norm_t, p_title):
+                                conn_mf.close()
+                                return (jid or cjd), p
+                    except Exception:
+                        continue
+                conn_mf.close()
+            except Exception:
+                pass
+
+        try:
+            cur = self._conn.execute("SELECT client_jd_id, requirement_from, payload_json FROM client_requirements")
+            for cjd, c_from, pstr in cur.fetchall():
+                try:
+                    p = json.loads(pstr)
+                    p_client = normalize_client_key(c_from or p.get("requirement_from") or "")
+                    if p_client == norm_c:
+                        p_title = normalize_identity_text(p.get("job_title") or "")
+                        if title_match(norm_t, p_title):
+                            return cjd, p
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
         return None
 
     def update_requirement_status(
@@ -929,7 +1183,7 @@ class ProcessedStore:
 
         cjd, payload = req_info
         old_status = payload.get("job_status", "open")
-        norm_new_status = "open" if new_status.lower() in ("reopen", "re-open", "resume", "reactivate") else new_status.lower()
+        norm_new_status = new_status.lower()
         if old_status.lower() == norm_new_status.lower():
             return True
 
@@ -945,14 +1199,8 @@ class ProcessedStore:
             (norm_new_status, new_hash, payload_str, now, cjd),
         )
 
-        mf_db = Path(metaforge_db_path) if metaforge_db_path else (self.path.parent / "metaforge_requirements.db")
-        if not mf_db.exists():
-            test_mf = self.path.parent / "test_metaforge.db"
-            if test_mf.exists():
-                mf_db = test_mf
-            else:
-                mf_db = Path(__file__).resolve().parent / "data" / "metaforge_requirements.db"
-        if mf_db.exists():
+        mf_db = self._get_sibling_metaforge_db(metaforge_db_path)
+        if mf_db and mf_db.exists():
             try:
                 conn_mf = sqlite3.connect(mf_db)
                 job_id = payload.get("job_id")
@@ -962,25 +1210,35 @@ class ProcessedStore:
                     try:
                         p_obj = json.loads(r_pstr)
                         if (
-                            p_obj.get("client_jd_id") == cjd
-                            or p_obj.get("job_id") == job_id
-                            or r_jid == job_id
+                            (cjd and p_obj.get("client_jd_id") == cjd)
+                            or (job_id and p_obj.get("job_id") == job_id)
+                            or (job_id and r_jid == job_id)
+                            or (requirement_id and (r_jid == requirement_id or p_obj.get("job_id") == requirement_id or p_obj.get("client_jd_id") == requirement_id))
                             or (ident and p_obj.get("identity") == ident)
                         ):
                             p_obj["job_status"] = norm_new_status
+                            p_obj["requirement_status"] = norm_new_status
+                            p_obj["updated_at"] = now
                             conn_mf.execute(
-                                "UPDATE metaforge_requirements SET payload_json = ? WHERE job_id = ?",
-                                (json.dumps(p_obj, ensure_ascii=False), r_jid),
+                                "UPDATE metaforge_requirements SET payload_json = ?, updated_at = ? WHERE job_id = ?",
+                                (json.dumps(p_obj, ensure_ascii=False), now, r_jid),
                             )
                     except Exception:
                         pass
+                try:
+                    conn_mf.execute(
+                        "INSERT INTO status_history (requirement_id, from_status, to_status, changed_at, source_email_id, changed_by) VALUES (?, ?, ?, ?, ?, ?)",
+                        (requirement_id or cjd or job_id, old_status, norm_new_status, now, source_email_id or "", changed_by),
+                    )
+                except Exception:
+                    pass
                 conn_mf.commit()
                 conn_mf.close()
             except Exception as ex:
                 _LOG.warning("Failed to update metaforge_requirements.db status: %s", ex)
 
         self.record_status_change(
-            requirement_id=cjd,
+            requirement_id=requirement_id or cjd or payload.get("job_id") or "",
             from_status=old_status,
             to_status=norm_new_status,
             source_email_id=source_email_id,
@@ -999,7 +1257,7 @@ class ProcessedStore:
     ) -> bool:
         """
         Modify existing requirement in place when changes occur in duplicate/reply emails.
-        Ensures a requirement is stored only once, updating fields (location, experience, skills, etc.)
+        Ensures a requirement is stored only once, updating fields (location, experience, skills, budget, etc.)
         and recording the changes in field_change_history.
         """
         import json
@@ -1010,18 +1268,14 @@ class ProcessedStore:
         cjd = incoming_payload.get("client_jd_id") or ""
         ref = requirement_id or cjd
 
-        mf_db = Path(metaforge_db_path) if metaforge_db_path else (self.path.parent / "metaforge_requirements.db")
-        if not mf_db.exists():
-            test_mf = self.path.parent / "test_metaforge.db"
-            if test_mf.exists():
-                mf_db = test_mf
-            else:
-                mf_db = Path(__file__).resolve().parent / "data" / "metaforge_requirements.db"
+        mf_db = self._get_sibling_metaforge_db(metaforge_db_path)
 
         fields_to_check = [
-            "location", "overall_experience", "overall_experience_min", "overall_experience_max",
-            "job_title", "skills", "mandatory_skills", "work_mode", "monthly_budget", "yearly_budget",
-            "budget_currency", "number_of_positions", "job_status", "requirement_status"
+            "skills", "mandatory_skills", "monthly_budget", "yearly_budget",
+            "budget_currency", "number_of_positions", "location", "overall_experience",
+            "overall_experience_min", "overall_experience_max",
+            "work_mode", "job_title", "notice_period", "priority",
+            "experience_level", "employment_type", "job_status", "requirement_status"
         ]
 
         if mf_db.exists():
@@ -1029,10 +1283,25 @@ class ProcessedStore:
                 conn_mf = sqlite3.connect(mf_db)
                 conn_mf.row_factory = sqlite3.Row
                 cur_mf = conn_mf.execute(
-                    "SELECT job_id, client_jd_id, payload_json, field_change_history FROM metaforge_requirements WHERE job_id = ? OR client_jd_id = ? OR client_jd_id = ?",
-                    (ref, ref, cjd),
+                    "SELECT job_id, client_jd_id, payload_json, field_change_history, identity FROM metaforge_requirements WHERE job_id = ? OR client_jd_id = ? OR identity = ? OR former_job_id = ?",
+                    (ref, cjd or ref, ref, ref),
                 )
-                rows = cur_mf.fetchall()
+                rows = list(cur_mf.fetchall())
+                if not rows and ref:
+                    cur_all = conn_mf.execute("SELECT job_id, client_jd_id, payload_json, field_change_history, identity FROM metaforge_requirements")
+                    for r_all in cur_all.fetchall():
+                        try:
+                            p_chk = json.loads(r_all["payload_json"]) if r_all["payload_json"] else {}
+                            if (
+                                p_chk.get("job_id") == ref
+                                or p_chk.get("client_jd_id") == ref
+                                or p_chk.get("identity") == ref
+                                or (cjd and p_chk.get("client_jd_id") == cjd)
+                            ):
+                                rows.append(r_all)
+                        except Exception:
+                            continue
+
                 for r in rows:
                     r_jid = r["job_id"]
                     try:
@@ -1049,17 +1318,18 @@ class ProcessedStore:
                             new_val = incoming_payload.get(fld)
                             if new_val is not None and str(new_val).strip() and str(new_val).strip().lower() not in ("none", "null", "unresolved", "unknown", "—"):
                                 old_val = p_obj.get(fld)
+                                is_changed = False
                                 if not old_val or str(old_val).strip() in ("", "None", "null", "unresolved", "unknown", "—"):
-                                    p_obj[fld] = new_val
-                                    hist.append({
-                                        "field": fld,
-                                        "old_value": old_val,
-                                        "new_value": new_val,
-                                        "changed_at": now,
-                                        "source": source_email_id or "email_update",
-                                    })
-                                    row_updated = True
-                                elif fld in ("location", "overall_experience", "work_mode", "job_status") and str(new_val).strip() != str(old_val).strip():
+                                    is_changed = True
+                                elif isinstance(new_val, list) or isinstance(old_val, list):
+                                    l_new = [str(x).strip().lower() for x in (new_val if isinstance(new_val, list) else [new_val]) if str(x).strip()]
+                                    l_old = [str(x).strip().lower() for x in (old_val if isinstance(old_val, list) else [old_val]) if str(x).strip()]
+                                    if set(l_new) != set(l_old):
+                                        is_changed = True
+                                elif str(new_val).strip().lower() != str(old_val).strip().lower():
+                                    is_changed = True
+
+                                if is_changed:
                                     p_obj[fld] = new_val
                                     hist.append({
                                         "field": fld,
@@ -1087,8 +1357,8 @@ class ProcessedStore:
         # Also update client_requirements in processed_messages.db if present
         try:
             cur_cr = self._conn.execute(
-                "SELECT client_jd_id, payload_json FROM client_requirements WHERE client_jd_id = ?",
-                (cjd or ref,),
+                "SELECT client_jd_id, payload_json FROM client_requirements WHERE client_jd_id = ? OR client_jd_id = ?",
+                (cjd or ref, ref),
             )
             cr_row = cur_cr.fetchone()
             if cr_row and cr_row[1]:
@@ -1096,9 +1366,20 @@ class ProcessedStore:
                 cr_updated = False
                 for fld in fields_to_check:
                     new_val = incoming_payload.get(fld)
-                    if new_val and not p_cr.get(fld):
-                        p_cr[fld] = new_val
-                        cr_updated = True
+                    if new_val is not None and str(new_val).strip() and str(new_val).strip().lower() not in ("none", "null", "unresolved", "unknown", "—"):
+                        old_cr_val = p_cr.get(fld)
+                        if not old_cr_val or str(old_cr_val).strip() in ("", "None", "null", "unresolved", "unknown", "—"):
+                            p_cr[fld] = new_val
+                            cr_updated = True
+                        elif isinstance(new_val, list) or isinstance(old_cr_val, list):
+                            l_new = [str(x).strip().lower() for x in (new_val if isinstance(new_val, list) else [new_val]) if str(x).strip()]
+                            l_old = [str(x).strip().lower() for x in (old_cr_val if isinstance(old_cr_val, list) else [old_cr_val]) if str(x).strip()]
+                            if set(l_new) != set(l_old):
+                                p_cr[fld] = new_val
+                                cr_updated = True
+                        elif str(new_val).strip().lower() != str(old_cr_val).strip().lower():
+                            p_cr[fld] = new_val
+                            cr_updated = True
                 if cr_updated:
                     new_hash = self._compute_requirement_details_hash(p_cr)
                     self._conn.execute(
@@ -1639,8 +1920,8 @@ class ProcessedStore:
             pass
 
         # 3. Check metaforge_requirements.db
-        mf_db = self.path.parent / "metaforge_requirements.db"
-        if mf_db.exists():
+        mf_db = self._get_sibling_metaforge_db()
+        if mf_db and mf_db.exists():
             try:
                 conn_mf = sqlite3.connect(f"file:{mf_db.resolve()}?mode=ro", uri=True)
                 conn_mf.row_factory = sqlite3.Row

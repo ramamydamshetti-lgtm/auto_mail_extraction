@@ -140,9 +140,9 @@ def _label_variant_pattern(values: tuple[str, ...]) -> str:
     return "|".join(re.escape(v).replace(r"\ ", r"\s+") for v in values)
 
 
-_EXP_RE = re.compile(r"(?i)\b(\d{1,2}(?:\.\d+)?\s*[-–—~\u2011\ufffd]\s*\d{1,2}(?:\.\d+)?|\d{1,2}(?:\.\d+)?\+?)\s*(?:years?|yrs?|yoe)\b")
+_EXP_RE = re.compile(r"(?i)\b(\d{1,2}(?:\.\d+)?\s*(?:[-–—~\u2011\ufffd]|to)\s*\d{1,2}(?:\.\d+)?|\d{1,2}(?:\.\d+)?\+?)\s*(?:years?|yrs?|yoe)\b")
 _EXP_LABEL_RE = re.compile(
-    rf"(?i)\b(?:{_label_variant_pattern(_FIELD_SYNONYMS['experience'])})\b\s*(?:[:\-]|is)?\s*(\d{{1,2}}(?:\.\d+)?(?:\s*[-–—~\u2011\ufffd]\s*\d{{1,2}}(?:\.\d+)?|\+?)?)"
+    rf"(?i)\b(?:{_label_variant_pattern(_FIELD_SYNONYMS['experience'])})\b\s*(?:[:\-]|is)?\s*(\d{{1,2}}(?:\.\d+)?(?:\s*(?:[-–—~\u2011\ufffd]|to)\s*\d{{1,2}}(?:\.\d+)?|\+?)?(?:\s*(?:years?|yrs?|yoe))?)"
 )
 _NOTICE_RE = re.compile(
     rf"(?i)\b(?:{_label_variant_pattern(_FIELD_SYNONYMS['notice_period'])})\b\s*(?:[:\-]|is)\s*([a-z0-9 +/\-]{{2,40}})"
@@ -433,39 +433,60 @@ def _extract_rule_fields(subject: str, body: str, block: str | None = None) -> d
             out["number_of_positions_quote"] = pos_m.group(0).strip()
         except ValueError:
             pass
+    if "number_of_positions" not in out:
+        pos_label_m = re.search(r"(?i)\b(?:open\s*positions?|positions?|openings?|headcount|no\.?\s*(?:of\s*)?positions?)\b\s*[:\-]\s*(\d{1,3})\b", text)
+        if pos_label_m:
+            try:
+                out["number_of_positions"] = int(pos_label_m.group(1))
+                out["number_of_positions_quote"] = pos_label_m.group(0).strip()
+            except ValueError:
+                pass
 
     # Budget parsing
-    multiplier = 1 if is_strict_field_mapping() else 100000
-    budget_m = _LPA_RE.search(text)
-    if budget_m:
-        lo = float(budget_m.group(1))
-        hi = float(budget_m.group(2)) if budget_m.group(2) else lo
-        out["yearly_budget_min"] = int(min(lo, hi) * multiplier)
-        out["yearly_budget_max"] = int(max(lo, hi) * multiplier)
-        out["budget_quote"] = budget_m.group(0).strip()
+    from field_mapper import parse_budget_fields
+    bgt_info = parse_budget_fields(text)
+    if bgt_info.get("budget_inr_lpm_min") is not None or bgt_info.get("budget_inr_lpm_max") is not None:
+        out["monthly_budget_min"] = bgt_info.get("budget_inr_lpm_min")
+        out["monthly_budget_max"] = bgt_info.get("budget_inr_lpm_max") or bgt_info.get("budget_inr_lpm_min")
+        out["budget_quote"] = bgt_info.get("budget_display") or ""
+        out["budget_currency"] = bgt_info.get("budget_currency") or "INR"
+    elif bgt_info.get("budget_inr_lpa_min") is not None or bgt_info.get("budget_inr_lpa_max") is not None:
+        out["yearly_budget_min"] = bgt_info.get("budget_inr_lpa_min")
+        out["yearly_budget_max"] = bgt_info.get("budget_inr_lpa_max") or bgt_info.get("budget_inr_lpa_min")
+        out["budget_quote"] = bgt_info.get("budget_display") or ""
+        out["budget_currency"] = bgt_info.get("budget_currency") or "INR"
     else:
-        budget_monthly_m = _LPM_RE.search(text)
-        if budget_monthly_m:
-            lo = float(budget_monthly_m.group(1))
-            hi = float(budget_monthly_m.group(2)) if budget_monthly_m.group(2) else lo
-            out["monthly_budget_min"] = int(min(lo, hi) * multiplier)
-            out["monthly_budget_max"] = int(max(lo, hi) * multiplier)
-            out["budget_quote"] = budget_monthly_m.group(0).strip()
+        multiplier = 1 if is_strict_field_mapping() else 100000
+        budget_m = _LPA_RE.search(text)
+        if budget_m:
+            lo = float(budget_m.group(1))
+            hi = float(budget_m.group(2)) if budget_m.group(2) else lo
+            out["yearly_budget_min"] = int(min(lo, hi) * multiplier)
+            out["yearly_budget_max"] = int(max(lo, hi) * multiplier)
+            out["budget_quote"] = budget_m.group(0).strip()
         else:
-            labelled_budget_m = _BUDGET_LABELLED_RE.search(text)
-            if labelled_budget_m:
-                lo = float(labelled_budget_m.group("low"))
-                hi = float(labelled_budget_m.group("high")) if labelled_budget_m.group("high") else lo
-                unit = (labelled_budget_m.group("unit") or "").strip().lower()
-                abs_hi = max(lo, hi)
-                if unit or abs_hi <= 100:
-                    out["yearly_budget_min"] = int(min(lo, hi) * multiplier)
-                    out["yearly_budget_max"] = int(max(lo, hi) * multiplier)
-                    out["budget_quote"] = labelled_budget_m.group(0).strip()
-                elif abs_hi >= 100000:
-                    out["yearly_budget_min"] = int(min(lo, hi))
-                    out["yearly_budget_max"] = int(max(lo, hi))
-                    out["budget_quote"] = labelled_budget_m.group(0).strip()
+            budget_monthly_m = _LPM_RE.search(text)
+            if budget_monthly_m:
+                lo = float(budget_monthly_m.group(1))
+                hi = float(budget_monthly_m.group(2)) if budget_monthly_m.group(2) else lo
+                out["monthly_budget_min"] = int(min(lo, hi) * multiplier)
+                out["monthly_budget_max"] = int(max(lo, hi) * multiplier)
+                out["budget_quote"] = budget_monthly_m.group(0).strip()
+            else:
+                labelled_budget_m = _BUDGET_LABELLED_RE.search(text)
+                if labelled_budget_m:
+                    lo = float(labelled_budget_m.group("low"))
+                    hi = float(labelled_budget_m.group("high")) if labelled_budget_m.group("high") else lo
+                    unit = (labelled_budget_m.group("unit") or "").strip().lower()
+                    abs_hi = max(lo, hi)
+                    if unit or abs_hi <= 100:
+                        out["yearly_budget_min"] = int(min(lo, hi) * multiplier)
+                        out["yearly_budget_max"] = int(max(lo, hi) * multiplier)
+                        out["budget_quote"] = labelled_budget_m.group(0).strip()
+                    elif abs_hi >= 100000:
+                        out["yearly_budget_min"] = int(min(lo, hi))
+                        out["yearly_budget_max"] = int(max(lo, hi))
+                        out["budget_quote"] = labelled_budget_m.group(0).strip()
 
     # A5 Currency: NULL unless currency symbol/code explicitly appears in requirement block
     if re.search(r"(?i)(?:₹|inr|rs\.?|rupees)", text):
@@ -763,6 +784,15 @@ def _is_noise_skill_candidate(skill: str) -> bool:
         "notice period",
         "monthly billing rates",
         "billing rates",
+        "l&t technology services",
+        "technology services",
+        "karnataka",
+        "india",
+        "mobile:",
+        "phone:",
+        "regards",
+        "rgds",
+        "engineering the change",
     )
     if any(t in low for t in noise_terms):
         return True
@@ -802,12 +832,12 @@ def _extract_requirement_titles_from_thread(subject: str, body: str) -> list[str
     return titles[:6]
 
 
-def _has_explicit_multi_jd_signal(text: str) -> bool:
+def _has_explicit_multi_jd_signal(text: str, extra_text: str = "") -> bool:
     """
     Multi-role extraction should be opt-in only when the message clearly indicates
     multiple distinct requirements/JDs.
     """
-    t = text or ""
+    t = f"{text or ''}\n{extra_text or ''}".strip()
     if not t:
         return False
     t = _strip_candidate_tables(t)
@@ -2040,14 +2070,6 @@ def parse_requirements_from_email(
         overall_confidence=1.0 if extracted_items else 0.0,
         is_multi_role=len(extracted_items) > 1,
     )
-    _LOG.info(
-        "ai_extraction_success",
-        requirements_count=len(validated.requirements),
-        overall_confidence=validated.overall_confidence,
-        is_multi_role=validated.is_multi_role,
-    )
-    clear_log_context()
-    return validated
 
     # Hybrid extraction hardening: deterministic regex for stable fields + anti-hallucination guards.
     text_for_fields = cleaned_latest or cleaned_full or body
@@ -2056,6 +2078,11 @@ def parse_requirements_from_email(
     skill_candidates = _extract_skill_candidates(text_for_fields)
     short_thread_mode = len((text_for_fields or "").strip()) <= 900
     clear_demand_mode = _has_clear_demand_signal(subject or "", text_for_fields or "")
+    multi_role_allowed = bool(
+        len(validated.requirements) > 1
+        or len(blocks) > 1
+        or _has_explicit_multi_jd_signal(subject or "", text_for_fields or "")
+    )
     for item in validated.requirements:
         field_conf = dict(item.field_confidence or {})
         field_sources = dict(item.field_sources or {})
@@ -2403,7 +2430,6 @@ def parse_requirements_from_email(
         )
     validated.is_multi_role = len(validated.requirements) > 1
     if is_strict_field_mapping():
-        from strict_validator import compute_requirement_confidence
         from two_way_verifier import deterministic_extract_block, reconcile_two_way
         det_extracted = deterministic_extract_block(body)
         updated_reqs = []

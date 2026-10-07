@@ -170,8 +170,10 @@ FIELD_LABEL_SYNONYMS: dict[str, tuple[str, ...]] = {
         "years of experience",
         "total experience",
         "overall experience",
-        "relevant experience",
+        "over all experience",
         "overall exp",
+        "over all exp",
+        "relevant experience",
         "total exp",
         "relevant exp",
         "years of exp",
@@ -183,14 +185,30 @@ FIELD_LABEL_SYNONYMS: dict[str, tuple[str, ...]] = {
         "salary",
         "package",
         "rate",
+        "monthly rate card",
+        "rate card",
+        "monthly rate",
+        "rate card / pm",
+        "rate card/pm",
         "bill rate",
+        "bill rate per month for tpc",
         "bill rate per month",
+        "rate / pm (inr)",
         "rate / pm",
         "rate/pm",
         "tpc rate",
         "tpc rates",
         "monthly budget",
         "billing rate",
+    ),
+    "number_of_positions": (
+        "open positions",
+        "open position",
+        "positions",
+        "openings",
+        "number of positions",
+        "no of positions",
+        "headcount",
     ),
     "mandatory_skills": (
         "mandatory skills",
@@ -279,13 +297,15 @@ class Settings:
     fingerprint_window_days: int | None = None
     similarity_weights: dict[str, float] | None = None
     similarity_thresholds: dict[str, float] | None = None
-    alert_recipient_email: str = "recruitment.application@metaforgeit.com"
+    outbound_email_enabled: bool = False
+    alert_recipient_email: str = ""
     alert_cooldown_seconds: int = 900
     alert_heartbeat_max_age_seconds: int = 300
     alert_failure_threshold: int = 3
-    accuracy_monitor_enabled: bool = True
+    accuracy_monitor_enabled: bool = False
     accuracy_monitor_cycle_interval: int = 30
     accuracy_monitor_sample_limit: int = 30
+
 
     @staticmethod
     def from_env() -> Settings:
@@ -366,13 +386,15 @@ class Settings:
             fingerprint_window_days=fp_win,
             similarity_weights=rules.get("similarity_weights"),
             similarity_thresholds=rules.get("similarity_thresholds"),
-            alert_recipient_email=_req("ALERT_RECIPIENT_EMAIL") or _req("MAILBOX_UPN") or "recruitment.application@metaforgeit.com",
+            outbound_email_enabled=_bool("OUTBOUND_EMAIL_ENABLED", False),
+            alert_recipient_email=_req("ALERT_RECIPIENT_EMAIL"),
             alert_cooldown_seconds=_int("ALERT_COOLDOWN_SECONDS", 900),
             alert_heartbeat_max_age_seconds=_int("ALERT_HEARTBEAT_MAX_AGE_SECONDS", 300),
             alert_failure_threshold=_int("ALERT_FAILURE_THRESHOLD", 3),
-            accuracy_monitor_enabled=_bool("ACCURACY_MONITOR_ENABLED", True),
+            accuracy_monitor_enabled=_bool("ACCURACY_MONITOR_ENABLED", False),
             accuracy_monitor_cycle_interval=max(1, _int("ACCURACY_MONITOR_CYCLE_INTERVAL", 30)),
             accuracy_monitor_sample_limit=max(5, _int("ACCURACY_MONITOR_SAMPLE_LIMIT", 30)),
         )
+
 
 

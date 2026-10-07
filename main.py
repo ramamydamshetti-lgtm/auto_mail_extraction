@@ -60,6 +60,7 @@ from utils import (
     decode_graph_attachment_bytes,
     setup_logging,
 )
+from status_tracker import evaluate_status_short_circuit, detect_status_keyword, extract_req_ids_from_text
 
 _LOG = logging.getLogger(__name__)
 
@@ -743,6 +744,227 @@ def process_single_message(
         clear_log_context()
         return 0
 
+    # Step 1.5: Status lifecycle short-circuit (Stop Demand / Hold / Reopen / Closed)
+    subj_raw = str(raw.get("subject") or "")
+    plain_txt, html_txt, norm_txt = _body_from_raw(raw)
+    body_txt = norm_txt or plain_txt
+    conv_id_raw = str(raw.get("conversationId") or (raw.get("_provenance") or {}).get("conversation_id") or "")
+
+    status_act, target_id = evaluate_status_short_circuit(
+        subject=subj_raw,
+        body=body_txt,
+        conversation_id=conv_id_raw,
+        graph_id=gid,
+        store=store,
+        from_email=fe,
+    )
+    if status_act == "STATUS_UPDATED" and target_id:
+        _LOG.info("Status short-circuit: updated requirement %s for message %s (%s)", target_id, gid, subj_raw)
+        store.pipeline_mark_synced(gid, f"status_short_circuit:{target_id}")
+        store.mark_message_seen(gid, inet_id, subj_raw, source="status_update")
+        store.record_email_disposition(
+            message_id=gid,
+            graph_id=gid,
+            internet_message_id=inet_id,
+            subject=subj_raw,
+            from_email=fe,
+            received_date_time=str(raw.get("receivedDateTime") or ""),
+            disposition="status_updated",
+            reason=f"status_short_circuit:{target_id}",
+        )
+        clear_log_context()
+        return 0
+    elif status_act in ("STOP_UNMATCHED", "PENDING_REVIEW_NO_THREAD"):
+        _LOG.info("Status short-circuit (%s): skipping message %s (%s)", status_act, gid, subj_raw)
+        store.pipeline_mark_skipped(gid, f"status_short_circuit_{status_act.lower()}")
+        store.mark_message_seen(gid, inet_id, subj_raw, source="status_skip")
+        store.record_email_disposition(
+            message_id=gid,
+            graph_id=gid,
+            internet_message_id=inet_id,
+            subject=subj_raw,
+            from_email=fe,
+            received_date_time=str(raw.get("receivedDateTime") or ""),
+            disposition="status_skip",
+            reason=f"status_short_circuit:{status_act}",
+        )
+        clear_log_context()
+        return 0
+
+    # Step 1.6: Conversation Thread & Reply Loop Deduplication Gate
+    # Before extracting a new requirement, identify whether the email belongs to an existing requirement/thread.
+    thread_match: tuple[str, dict] | None = None
+    if conv_id_raw:
+        thread_match = store.find_requirement_by_conversation_id(conv_id_raw)
+
+    if not thread_match:
+        in_reply_to = str(raw.get("inReplyTo") or (raw.get("_provenance") or {}).get("in_reply_to") or "").strip()
+        if in_reply_to:
+            thread_match = store.find_requirement_by_message_id(in_reply_to)
+        if not thread_match:
+            refs = raw.get("references") or (raw.get("_provenance") or {}).get("references") or []
+            if isinstance(refs, str):
+                refs = [refs]
+            for ref_id in refs:
+                thread_match = store.find_requirement_by_message_id(str(ref_id).strip())
+                if thread_match:
+                    break
+
+    if not thread_match:
+        req_ids = extract_req_ids_from_text(subj_raw, body_txt)
+        email_client_match = detect_client(subj_raw, body_txt, fe)
+        email_client = normalize_client_key(email_client_match.key if email_client_match else "")
+        for rid in req_ids:
+            found = store.find_requirement_by_req_id(rid)
+            if found:
+                target_req_id, target_payload = found
+                target_client = normalize_client_key(target_payload.get("requirement_from") or target_payload.get("client") or "")
+                if (
+                    target_client
+                    and email_client
+                    and target_client not in ("unknown", "idexcel_unresolved", "unresolved")
+                    and email_client not in ("unknown", "idexcel_unresolved", "unresolved")
+                    and target_client != email_client
+                ):
+                    continue
+                thread_match = found
+                break
+
+    is_reply_subj = bool(re.match(r"(?i)^\s*(?:re|fwd|fw)\s*:\s*", subj_raw))
+    if not thread_match and is_reply_subj:
+        found = store.find_requirement_by_subject(subj_raw)
+        if found:
+            target_req_id, target_payload = found
+            target_client = normalize_client_key(target_payload.get("requirement_from") or target_payload.get("client") or "")
+            if not (
+                target_client
+                and email_client
+                and target_client not in ("unknown", "idexcel_unresolved", "unresolved")
+                and email_client not in ("unknown", "idexcel_unresolved", "unresolved")
+                and target_client != email_client
+            ):
+                thread_match = found
+
+    if thread_match:
+        target_req_id, target_payload = thread_match
+        _LOG.info(
+            "Thread match: message %s belongs to existing requirement %s (conv=%s, subj=%r)",
+            gid, target_req_id, conv_id_raw, subj_raw,
+        )
+
+        status, payloads, body_for_ai = extract_and_map(
+            raw,
+            token=token,
+            mailbox=mailbox,
+            settings=settings,
+            allocator=None,
+            skip_classifier=skip_classifier,
+        )
+
+        has_genuine_change = False
+        from metaforge_api import _field_diff
+
+        if status == "ok" and payloads:
+            for p in payloads:
+                # Match specific requirement in thread if multi-role
+                req_in_thread = store.find_requirement_by_conversation_id(
+                    conv_id_raw,
+                    title=p.get("job_title"),
+                    client_jd_id=p.get("client_jd_id"),
+                ) or (target_req_id, target_payload)
+                m_id, m_payload = req_in_thread
+                diff = _field_diff(m_payload, p)
+                if diff:
+                    _LOG.info("Genuine client change in thread for %s: %s", m_id, list(diff.keys()))
+                    store.update_requirement_fields_in_place(
+                        requirement_id=m_id,
+                        incoming_payload=p,
+                        source_email_id=gid,
+                    )
+                    has_genuine_change = True
+        else:
+            # Check if body_txt has short client change directives (e.g. rate, positions, experience)
+            delta_payload: dict[str, Any] = {}
+            m_pos = re.search(r"(?:(?:positions?|openings?|vacanc(?:y|ies)|no\.?\s*of\s*positions?)\s*(?:is|:|=)?\s*(\d+)|\b(\d+)\s+positions?\b)", body_txt, re.I)
+            if m_pos:
+                try:
+                    v_pos = int(m_pos.group(1) or m_pos.group(2))
+                    if 1 <= v_pos <= 100:
+                        delta_payload["number_of_positions"] = v_pos
+                except Exception:
+                    pass
+            m_bud = re.search(r"(?:budget|rate|ctc)\s*(?:is|:|=)?\s*([₹$€£]?\s*[\d,]+(?:\s*k|\s*l|\s*lakhs?|\s*pm|\s*/\s*month)?)", body_txt, re.I)
+            if m_bud:
+                b_val = m_bud.group(1).strip()
+                if b_val:
+                    delta_payload["monthly_budget"] = b_val
+            m_exp = re.search(r"(\d+(?:\.\d+)?\s*(?:[-–—~]|to)\s*\d+(?:\.\d+)?\s*(?:years?|yrs?))", body_txt, re.I)
+            if m_exp:
+                delta_payload["overall_experience"] = m_exp.group(1).strip()
+
+            if delta_payload:
+                diff = _field_diff(target_payload, delta_payload)
+                if diff:
+                    _LOG.info("Genuine client delta update in thread for %s: %s", target_req_id, list(diff.keys()))
+                    store.update_requirement_fields_in_place(
+                        requirement_id=target_req_id,
+                        incoming_payload=delta_payload,
+                        source_email_id=gid,
+                    )
+                    has_genuine_change = True
+
+        recv_raw = str(raw.get("receivedDateTime") or "")
+        if has_genuine_change:
+            _LOG.info("Thread reply updated existing requirement %s in-place (msg=%s)", target_req_id, gid)
+            store.pipeline_mark_synced(gid, f"thread_reply_updated:{target_req_id}")
+            store.mark_message_seen(gid, inet_id, subj_raw, source="thread_reply_update")
+            store.record_email_disposition(
+                message_id=gid,
+                graph_id=gid,
+                internet_message_id=inet_id,
+                subject=subj_raw,
+                from_email=fe,
+                received_date_time=recv_raw,
+                disposition="updated",
+                reason=f"thread_reply_updated:{target_req_id}",
+            )
+            store.log_duplicate_decision(
+                source_email_id=gid,
+                matched_requirement_id=target_req_id,
+                score=1.0,
+                deciding_rule="THREAD_REPLY_GENUINE_CHANGE",
+                decision="UPDATED",
+            )
+            if target_payload and target_payload.get("identity"):
+                store.update_identity_seen(target_payload["identity"], graph_id=gid, seen_at=recv_raw)
+            clear_log_context()
+            return 0
+        else:
+            _LOG.info("Thread reply ignored for requirement creation (no genuine change) for %s (msg=%s)", target_req_id, gid)
+            store.pipeline_mark_synced(gid, f"thread_reply_no_change:{target_req_id}")
+            store.mark_message_seen(gid, inet_id, subj_raw, source="thread_reply_no_change")
+            store.record_email_disposition(
+                message_id=gid,
+                graph_id=gid,
+                internet_message_id=inet_id,
+                subject=subj_raw,
+                from_email=fe,
+                received_date_time=recv_raw,
+                disposition="duplicate",
+                reason=f"thread_reply_no_change:{target_req_id}",
+            )
+            store.log_duplicate_decision(
+                source_email_id=gid,
+                matched_requirement_id=target_req_id,
+                score=1.0,
+                deciding_rule="THREAD_REPLY_NO_CHANGE",
+                decision="DUPLICATE",
+            )
+            if target_payload and target_payload.get("identity"):
+                store.update_identity_seen(target_payload["identity"], graph_id=gid, seen_at=recv_raw)
+            clear_log_context()
+            return 0
+
     # Step 2: Extract requirements without burning REQ IDs
     status, payloads, body_for_ai = extract_and_map(
         raw,
@@ -904,10 +1126,13 @@ def process_single_message(
                     email_status = payload.get("job_status") or payload.get("raw_status")
                     subj_body = (str(raw.get("subject") or "") + " " + body_text).lower()
                     status_to_update = None
-                    if email_status and str(email_status).lower() in ("hold", "on hold", "on-hold", "reopen", "re-open", "closed", "active"):
+                    kw = detect_status_keyword(str(raw.get("subject") or ""), body_text)
+                    if kw:
+                        status_to_update = "open" if kw == "reopen" else kw
+                    elif email_status and str(email_status).lower() in ("hold", "on hold", "on-hold", "reopen", "re-open", "closed", "active"):
                         st_raw = str(email_status).lower()
                         status_to_update = "hold" if "hold" in st_raw else ("open" if "reopen" in st_raw or "active" in st_raw else "closed")
-                    elif re.search(r"\b(?:on\s+hold|hold|put\s+on\s+hold)\b", subj_body):
+                    elif re.search(r"\b(?:on\s+hold|hold|put\s+on\s+hold|stop\s+on\s+this\s+demand|stop\s+demand|pls\s+stop|stop\s+working)\b", subj_body):
                         status_to_update = "hold"
                     elif re.search(r"\b(?:reopened?|re-opened?|active)\b", subj_body):
                         status_to_update = "open"

@@ -290,9 +290,11 @@ def build_requirement_profile(payload: dict[str, Any], body_text: str = "") -> d
     raw_body = body_text or str(payload.get("bodyText") or payload.get("body") or "")
     if not raw_body:
         # Fallback to synthesizing a block from available text fields
+        loc_val = payload.get("location")
+        loc_str = " ".join(str(x) for x in loc_val if x) if isinstance(loc_val, (list, tuple)) else str(loc_val or "")
         parts = [
-            payload.get("job_title") or "",
-            payload.get("location") or "",
+            str(payload.get("job_title") or ""),
+            loc_str,
             str(exp_val or ""),
             " ".join(mand_skills),
             " ".join(add_skills),
@@ -366,6 +368,23 @@ def _compute_experience_overlap(
     return 0.0
 
 
+SENIORITY_KEYWORDS: set[str] = {
+    "senior", "sr", "sr.", "junior", "jr", "jr.", "lead", "principal",
+    "staff", "associate", "intern", "trainee", "architect", "director",
+    "manager", "head", "vp",
+    "l1", "l2", "l3", "l4", "l5", "level1", "level2", "level3", "tier1", "tier2", "tier3"
+}
+
+def _extract_seniority_set(text: str) -> set[str]:
+    import re
+    return set(re.findall(r"\b[a-zA-Z0-9]+\b", (text or "").lower())) & SENIORITY_KEYWORDS
+
+
+def _extract_numeric_tokens(text: str) -> list[str]:
+    import re
+    return re.findall(r"\b(?:\d+|i{1,3}|iv|vi{0,3}|ix|x)\b", (text or "").lower())
+
+
 def compare_requirements(
     profile1: dict[str, Any],
     profile2: dict[str, Any],
@@ -393,13 +412,20 @@ def compare_requirements(
 
     # --- W3: HARD RULES (Checked First) ---
 
-    # Hard Rule 1: Different clients -> NOT a duplicate
-    if c1 and c2 and c1 != c2:
+    # Hard Rule 1: Different clients -> NOT a duplicate (unless one is unresolved/unknown)
+    if c1 and c2 and c1 != c2 and c1 not in ("unresolved", "unknown") and c2 not in ("unresolved", "unknown"):
         return ("NOT_DUPLICATE", 0.0, "HARD_RULE_DIFFERENT_CLIENTS")
 
-    # Hard Rule 2: Same client and same client ID -> DUPLICATE (ID decides, content not needed)
-    if c1 == c2 and id1 and id2 and id1 == id2:
-        return ("DUPLICATE", 1.0, "HARD_RULE_SAME_CLIENT_AND_ID")
+    # Hard Rule 2: Compatible client and same client ID -> DUPLICATE (ID decides, content not needed)
+    if id1 and id2 and id1 == id2:
+        is_client_compatible = (
+            (c1 == c2)
+            or not c1 or not c2
+            or c1 in ("unresolved", "unknown")
+            or c2 in ("unresolved", "unknown")
+        )
+        if is_client_compatible:
+            return ("DUPLICATE", 1.0, "HARD_RULE_SAME_CLIENT_AND_ID")
 
     # Hard Rule 3: Both have a client ID and IDs differ (including suffix 203421-1 vs 203421-2) -> NOT duplicate
     if c1 == c2 and id1 and id2 and id1 != id2:
@@ -419,7 +445,15 @@ def compare_requirements(
     if t1 and t2:
         seq_ratio = difflib.SequenceMatcher(None, t1, t2).ratio()
         jacc = _token_jaccard(t1, t2)
-        scores["title"] = max(seq_ratio, jacc)
+        nums1 = _extract_numeric_tokens(t1)
+        nums2 = _extract_numeric_tokens(t2)
+        if nums1 != nums2:
+            scores["title"] = min(seq_ratio, jacc) * 0.5
+        else:
+            if len(t1.split()) != len(t2.split()):
+                scores["title"] = (seq_ratio + jacc) / 2.0
+            else:
+                scores["title"] = max(seq_ratio, jacc)
 
     # 2. Skills Set Overlap (0.25)
     s1 = set(profile1.get("mandatory_skills") or []) | set(profile1.get("additional_skills") or [])
@@ -487,6 +521,24 @@ def compare_requirements(
         return ("NOT_DUPLICATE", 0.0, "NO_COMPARABLE_FIELDS")
 
     total_score = sum(active_weights[k] * scores[k] for k in active_weights) / sum_weights
+
+    # Client Change / Role Update Rule:
+    # When same client (or compatible), compatible cities, no conflicting client IDs:
+    # Requires matching seniority and strong title match (>= 0.85).
+    # And experience ranges must not be completely disjoint (ov > 0.0).
+    # And if skills are present on both, skills must not be completely disjoint (score >= 0.10).
+    is_client_match = (c1 == c2) or not c1 or not c2 or c1 in ("unresolved", "unknown") or c2 in ("unresolved", "unknown")
+    if is_client_match and not (city1 and city2 and city1 != city2) and not (id1 and id2 and id1 != id2):
+        sen1 = _extract_seniority_set(t1)
+        sen2 = _extract_seniority_set(t2)
+        nums1 = _extract_numeric_tokens(t1)
+        nums2 = _extract_numeric_tokens(t2)
+        if sen1 == sen2 and nums1 == nums2 and scores.get("title", 0.0) >= 0.85:
+            ov = scores.get("experience")
+            sk_sc = scores.get("skills")
+            has_skills_both = bool(profile1.get("mandatory_skills") or profile1.get("additional_skills")) and bool(profile2.get("mandatory_skills") or profile2.get("additional_skills"))
+            if (ov is None or ov > 0.0) and (not has_skills_both or sk_sc is None or sk_sc >= 0.10):
+                return ("DUPLICATE", max(total_score, 0.90), "CLIENT_CHANGE_SAME_ROLE")
 
     # Classify against thresholds
     if total_score >= dup_thresh:

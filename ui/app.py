@@ -477,14 +477,21 @@ def filter_and_sort_records(records: List[dict], q: str, client: str, status: st
     sort_clean = (sort or "").strip().lower()
     reverse = (order.lower() != "asc")  # default order is descending
 
-    if not sort_clean or sort_clean in ("first_arrival_at", "arr_iso", "receiveddatetime", "created_at", "sort_ts", "req_id", "requirement", "default"):
+    if not sort_clean or sort_clean in ("req_id", "requirement", "default", "job_id"):
         res.sort(key=parse_sort_tuple, reverse=reverse)
+    elif sort_clean in ("first_arrival_at", "arr_iso", "receiveddatetime", "created_at", "sort_ts"):
+        def arrival_sort_key(item):
+            p = item.get("payload", {})
+            fa = str(item.get("first_arrival_at") or p.get("first_arrival_at") or item.get("arr_iso") or p.get("receivedDateTime") or item.get("created_at") or "").strip()
+            return (_parse_to_utc_dt(fa), parse_sort_tuple(item))
+        res.sort(key=arrival_sort_key, reverse=reverse)
     else:
         def general_sort_key(item):
             val = item.get(sort) or item.get("payload", {}).get(sort)
             val_str = str(val).lower() if val is not None else ""
             return (val_str, parse_sort_tuple(item))
         res.sort(key=general_sort_key, reverse=reverse)
+
 
     return res
 
@@ -515,8 +522,7 @@ def index():
     q = request.args.get("q", "").strip()
     client = request.args.get("client", "").strip()
     status = request.args.get("status", "").strip()
-    # S1 & S2: Default sort is first_arrival_at DESC
-    sort = request.args.get("sort", UI_CONFIG.get("default_sort", "first_arrival_at")).strip()
+    sort = request.args.get("sort", UI_CONFIG.get("default_sort", "req_id")).strip()
     order = request.args.get("order", UI_CONFIG.get("default_sort_order", "desc")).strip()
 
     filtered = filter_and_sort_records(all_records, q, client, status, sort, order)
@@ -611,7 +617,7 @@ def api_requirements():
     q = request.args.get("q", "").strip()
     client = request.args.get("client", "").strip()
     status = request.args.get("status", "").strip()
-    sort = request.args.get("sort", UI_CONFIG.get("default_sort", "first_arrival_at")).strip()
+    sort = request.args.get("sort", UI_CONFIG.get("default_sort", "req_id")).strip()
     order = request.args.get("order", UI_CONFIG.get("default_sort_order", "desc")).strip()
 
     filtered = filter_and_sort_records(all_records, q, client, status, sort, order)

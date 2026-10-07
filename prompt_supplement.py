@@ -53,4 +53,6 @@ def get_prompt_supplement(client_name: str | None = None) -> str:
     """
     Generate prompt supplement for AI parser/classifier.
     """
-    return ""
+    if client_name and client_name in _CLIENT_FEW_SHOT_EXAMPLES:
+        return _CLIENT_FEW_SHOT_EXAMPLES[client_name]
+    return f"General AI rules apply for {client_name or 'generic'}"

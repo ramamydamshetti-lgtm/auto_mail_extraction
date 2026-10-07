@@ -419,6 +419,72 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                 if row:
                     existing_row = row
 
+            # Fall back to Outlook conversationId / thread lookup
+            if existing_row is None:
+                prov = payload.get("_provenance") if isinstance(payload.get("_provenance"), dict) else {}
+                cid = str(prov.get("conversation_id") or payload.get("conversationId") or payload.get("conversation_id") or "").strip()
+                if cid:
+                    cur_all = conn.execute(
+                        "SELECT job_id, payload_json, field_change_history, identity "
+                        "FROM metaforge_requirements ORDER BY rowid ASC"
+                    )
+                    c_rows = []
+                    for r_chk in cur_all.fetchall():
+                        try:
+                            p_chk = json.loads(r_chk["payload_json"])
+                            pr = p_chk.get("_provenance") if isinstance(p_chk.get("_provenance"), dict) else {}
+                            if (
+                                pr.get("conversation_id") == cid
+                                or p_chk.get("conversationId") == cid
+                                or p_chk.get("conversation_id") == cid
+                            ):
+                                c_rows.append((r_chk, p_chk))
+                        except Exception:
+                            continue
+                    if c_rows:
+                        matched = None
+                        incoming_cjd = str(cjd or payload.get("client_jd_id") or "").strip().lower()
+                        incoming_title = str(payload.get("job_title") or "").strip().lower()
+                        for r_chk, p_chk in c_rows:
+                            cand_cjd = str(p_chk.get("client_jd_id") or "").strip().lower()
+                            cand_title = str(p_chk.get("job_title") or "").strip().lower()
+                            if incoming_cjd and cand_cjd and incoming_cjd == cand_cjd:
+                                matched = r_chk
+                                break
+                            if incoming_title and cand_title and incoming_title == cand_title:
+                                matched = r_chk
+                                break
+                        if not matched and len(c_rows) == 1:
+                            matched = c_rows[0][0]
+                        if matched:
+                            existing_row = matched
+
+            # Fall back to whole-requirement profile duplicate matching (W1-W5, Rule 2)
+            if existing_row is None:
+                try:
+                    from requirement_comparator import build_requirement_profile, compare_requirements
+                    incoming_prof = payload.get("_profile") or build_requirement_profile(payload)
+                    cur_all = conn.execute(
+                        "SELECT job_id, client_jd_id, payload_json, field_change_history, identity "
+                        "FROM metaforge_requirements ORDER BY rowid ASC"
+                    )
+                    for r_chk in cur_all.fetchall():
+                        try:
+                            p_chk = json.loads(r_chk["payload_json"])
+                            cand_prof = p_chk.get("_profile") or build_requirement_profile(p_chk)
+                            dec, score, rule = compare_requirements(incoming_prof, cand_prof)
+                            if dec == "DUPLICATE":
+                                _LOG.info(
+                                    "Upsert duplicate detected for %s against %s (score=%.2f, rule=%s)",
+                                    payload.get("job_title"), r_chk["job_id"], score, rule,
+                                )
+                                existing_row = r_chk
+                                break
+                        except Exception:
+                            continue
+                except Exception as _ex:
+                    _LOG.debug("Error in whole-requirement fallback matching: %s", _ex)
+
             if existing_row is not None:
                 # --- UPDATE PATH (Rules 2-4) ---
                 stored_job_id = existing_row["job_id"]

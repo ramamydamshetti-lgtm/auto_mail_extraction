@@ -9,6 +9,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import dataclasses
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -301,7 +302,7 @@ def test_operational_health_summary(temp_alert_env):
 
 def test_graph_api_send_mail_contract(temp_alert_env):
     """Verify Microsoft Graph sendMail contract matches specifications."""
-    settings = temp_alert_env["settings"]
+    settings = dataclasses.replace(temp_alert_env["settings"], outbound_email_enabled=True)
 
     with patch("alerting._token_client_credentials", return_value="mock-token-abc"):
         with patch("alerting.requests.post") as mock_post:
@@ -330,3 +331,33 @@ def test_graph_api_send_mail_contract(temp_alert_env):
             assert call_json["message"]["toRecipients"][0]["emailAddress"]["address"] == "alerts@metaforgeit.com"
             assert call_json["message"]["body"]["contentType"] == "HTML"
             assert call_json["saveToSentItems"] is False
+
+
+def test_outbound_email_blocked_by_default(temp_alert_env):
+    """Verify that by default, send_graph_alert_email is blocked (extraction-only mode)."""
+    settings = dataclasses.replace(temp_alert_env["settings"], outbound_email_enabled=False)
+
+    success, err = send_graph_alert_email(
+        settings=settings,
+        to_email="alerts@external.com",
+        subject="Test",
+        text_content="Body",
+    )
+    assert not success
+    assert "extraction-only policy" in err
+
+
+def test_outbound_email_blocked_to_recruitment_mailbox(temp_alert_env):
+    """Verify that sending to recruitment.application@metaforgeit.com is unconditionally blocked."""
+    settings = dataclasses.replace(temp_alert_env["settings"], outbound_email_enabled=True)
+
+    success, err = send_graph_alert_email(
+        settings=settings,
+        to_email="recruitment.application@metaforgeit.com",
+        subject="Test Alert",
+        text_content="Alert body",
+    )
+    assert not success
+    assert "recruitment.application@metaforgeit.com is strictly prohibited" in err
+
+

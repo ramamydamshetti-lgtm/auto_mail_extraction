@@ -23,8 +23,39 @@ from config import is_strict_field_mapping
 _LOG = logging.getLogger(__name__)
 
 # In-memory record cache to accelerate page loads and API lookups
-_CACHE_RECORDS: Dict[bool, Tuple[float, List[Dict[str, Any]]]] = {}
-_CACHE_TTL: float = 30.0  # seconds
+_CACHE_RECORDS: Dict[Any, Tuple[float, Any, List[Dict[str, Any]]]] = {}
+_CACHE_TTL: float = 120.0  # seconds
+_CACHE_RECORD_MAP: Dict[str, Dict[str, Any]] = {}
+_CACHE_SIGNATURE: Any = None
+
+
+def _populate_record_cache_map(records: List[Dict[str, Any]], rule: dict, db_signature: Any) -> None:
+    global _CACHE_RECORD_MAP, _CACHE_SIGNATURE
+    _CACHE_RECORD_MAP.clear()
+    _CACHE_SIGNATURE = db_signature
+    for rec in records:
+        ident = rec.get("identity")
+        if ident:
+            _CACHE_RECORD_MAP[ident] = rec
+        rid = rec.get("req_id")
+        if rid:
+            _CACHE_RECORD_MAP[rid] = rec
+            _CACHE_RECORD_MAP[normalize_id(rid, rule)] = rec
+        raw_id = rec.get("raw_req_id")
+        if raw_id:
+            _CACHE_RECORD_MAP[raw_id] = rec
+            _CACHE_RECORD_MAP[normalize_id(raw_id, rule)] = rec
+        fmt_id = rec.get("fmt_id")
+        if fmt_id:
+            _CACHE_RECORD_MAP[fmt_id] = rec
+        cjd = rec.get("client_jd_id") or rec.get("payload", {}).get("client_jd_id")
+        if cjd:
+            _CACHE_RECORD_MAP[cjd] = rec
+            _CACHE_RECORD_MAP[normalize_id(cjd, rule)] = rec
+        fid = rec.get("former_job_id")
+        if fid:
+            _CACHE_RECORD_MAP[fid] = rec
+            _CACHE_RECORD_MAP[normalize_id(fid, rule)] = rec
 
 
 def _parse_to_utc_dt(dt_val: Any) -> datetime:
@@ -207,8 +238,15 @@ def clean_skills(skills_val: Any) -> Any:
             s_str = str(sk).strip()
             if not s_str or len(s_str) < 2:
                 continue
+            # Drop boilerplate prefixes/labels
+            if re.match(r'(?i)^(?:must\s*have\s*[-–]?|must-have|highlighted)$', s_str):
+                continue
+            # Clean trailing/leading artifacts like " , Highlighted"
+            s_str = re.sub(r'(?i)\s*,\s*highlighted\b', '', s_str).strip()
+            if not s_str or len(s_str) < 2:
+                continue
             # Only drop clear recruiter address/signature lines
-            if re.search(r'(?i)(?:pvt\s*ltd|iso\s*27001|bhuvanappa\s+layout|crystal\s+plaza|hosur\s+road|mob:\s*\+?\d|tel:\s*\+?\d|https?://|talent\s+acquisition\b|recruiter\b|hr\s+team|rahul\s+saha|vaishnavi\s+b|lead-talent|@[a-z0-9\.\-_]+\.[a-z]{2,}|\b\+?91\s*\d{10}\b)', s_str):
+            if re.search(r'(?i)(?:pvt\s*ltd|l&t\s+technology\s+services|technology\s+services\s+ltd|karnataka\s*\d*|india\b|iso\s*27001|bhuvanappa\s+layout|crystal\s+plaza|hosur\s+road|bengaluru|tech\s+park|s1\s+building|mob(?:ile)?:\s*\+?[\d\s]+|tel:\s*\+?\d|https?://|talent\s+acquisition\b|recruiter\b|hr\s+team|rahul\s+saha|vaishnavi\s+b|kallol\s+chakraborty|partner\s+engagement|lead-talent|@[a-z0-9\.\-_]+\.[a-z]{2,}|\b\+?91\s*\d{10}\b|engineering\s+the\s+change|^engineering$|^the\s+change$|^uses$|privacy\s+notice|privacy\s+policy|safeguard\s+your\s+privacy|confidential\s+or\s+privileged|intended\s+recipient|delete\s+it\s+from\s+your\s+system)', s_str):
                 continue
             cleaned.append(s_str)
         return cleaned
@@ -287,6 +325,8 @@ def fetch_all_records(config: dict, include_archived: bool = False) -> List[Dict
     if cached is not None:
         cached_time, cached_sig, cached_data = cached
         if (now - cached_time) < _CACHE_TTL and cached_sig == db_signature:
+            if not _CACHE_RECORD_MAP or _CACHE_SIGNATURE != db_signature:
+                _populate_record_cache_map(cached_data, config.get("id_normalization_rule", {}), db_signature)
             return cached_data
 
     from client_detector import detect_client
@@ -339,16 +379,14 @@ def fetch_all_records(config: dict, include_archived: bool = False) -> List[Dict
     global_client_jd_to_key: Dict[str, str] = {}
     raw_id_to_key: Dict[str, str] = {}
 
-    tables_to_query = ["metaforge_requirements", "client_requirements", "pending_reviews", "requirement_memory"]
+    tables_to_query = ["metaforge_requirements", "client_requirements"]
     if include_archived:
         tables_to_query.append("archived_backlog")
 
     TABLE_PRIORITY = {
         "metaforge_requirements": 10,
         "client_requirements": 5,
-        "pending_reviews": 3,
         "archived_backlog": 2,
-        "requirement_memory": 1,
     }
 
     for db_path in db_paths:
@@ -416,9 +454,28 @@ def fetch_all_records(config: dict, include_archived: bool = False) -> List[Dict
                             if old_np:
                                 payload["notice_period"] = clean_notice_period(old_np)
 
+                            # Sanitize budget / budget_text so raw email dumps are never displayed
+                            for bk in ("budget", "budget_text"):
+                                b_val = str(payload.get(bk) or "")
+                                if b_val and (
+                                    len(b_val) > 80
+                                    or "\n" in b_val
+                                    or any(w in b_val.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner"))
+                                ):
+                                    if payload.get("monthly_budget"):
+                                        mb = payload.get("monthly_budget")
+                                        payload[bk] = f"{int(mb):,} / month" if isinstance(mb, (int, float)) else f"{mb} / month"
+                                    elif payload.get("yearly_budget"):
+                                        payload[bk] = f"{payload.get('yearly_budget')} LPA"
+                                    else:
+                                        payload[bk] = None
+
                             old_sk = payload.get("skills")
                             if old_sk:
                                 payload["skills"] = clean_skills(old_sk)
+                            old_mand = payload.get("mandatory_skills")
+                            if old_mand:
+                                payload["mandatory_skills"] = clean_skills(old_mand)
 
                             st = str(payload.get("job_status") or "").strip().lower()
                             if not is_strict_field_mapping():
@@ -712,6 +769,7 @@ def fetch_all_records(config: dict, include_archived: bool = False) -> List[Dict
 
     records.sort(key=_sort_key, reverse=True)
     _CACHE_RECORDS[cache_key] = (now, db_signature, records)
+    _populate_record_cache_map(records, config.get("id_normalization_rule", {}), db_signature)
     return records
 
 
@@ -942,21 +1000,210 @@ def update_status_in_db(config: dict, target_id: str, new_status: str, changed_b
             _LOG.error("Failed to update status in DB %s: %s", db_path, err)
 
     if updated:
-        global _CACHE_RECORDS
+        global _CACHE_RECORDS, _CACHE_RECORD_MAP
         _CACHE_RECORDS = None
+        if isinstance(_CACHE_RECORD_MAP, dict):
+            _CACHE_RECORD_MAP.clear()
 
     return updated
+
+
+def fetch_single_record_direct(config: dict, target_id: str, target_norm: str, target_fmt: str | None, rule: dict) -> Optional[Dict[str, Any]]:
+    """Direct, targeted single-requirement lookup without scanning or reloading all emails."""
+    candidates = [target_id]
+    if target_norm and target_norm not in candidates:
+        candidates.append(target_norm)
+    if target_fmt and target_fmt not in candidates:
+        candidates.append(target_fmt)
+
+    db_paths = config.get("db_paths", [])
+    from requirement_identity import compute_requirement_identity, normalize_client_key
+
+    for db_path in db_paths:
+        if not os.path.exists(db_path):
+            continue
+        conn = _open_ro_connection(db_path)
+        if not conn:
+            continue
+        try:
+            for tbl, tbl_priority in [
+                ("metaforge_requirements", 10),
+                ("client_requirements", 5),
+                ("pending_reviews", 3),
+                ("requirement_memory", 1),
+            ]:
+                try:
+                    col_info = [r[1] for r in conn.execute(f"PRAGMA table_info({tbl})").fetchall()]
+                    if not col_info:
+                        continue
+                    for c in candidates:
+                        clauses = []
+                        params = []
+                        if "job_id" in col_info:
+                            clauses.append("job_id = ?")
+                            params.append(c)
+                        if "client_jd_id" in col_info:
+                            clauses.append("client_jd_id = ?")
+                            params.append(c)
+                        if "identity" in col_info:
+                            clauses.append("identity = ?")
+                            params.append(c)
+                        if "former_job_id" in col_info:
+                            clauses.append("former_job_id = ?")
+                            params.append(c)
+                        if not clauses:
+                            continue
+                        q = f"SELECT * FROM {tbl} WHERE (" + " OR ".join(clauses) + ") LIMIT 1"
+                        row = conn.execute(q, params).fetchone()
+                        if row:
+                            payload = json.loads(row["payload_json"])
+
+                            # Sanitize budget / budget_text so raw email dumps are never displayed
+                            for bk in ("budget", "budget_text"):
+                                b_val = str(payload.get(bk) or "")
+                                if b_val and (
+                                    len(b_val) > 80
+                                    or "\n" in b_val
+                                    or any(w in b_val.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner"))
+                                ):
+                                    if payload.get("monthly_budget"):
+                                        mb = payload.get("monthly_budget")
+                                        payload[bk] = f"{int(mb):,} / month" if isinstance(mb, (int, float)) else f"{mb} / month"
+                                    elif payload.get("yearly_budget"):
+                                        payload[bk] = f"{payload.get('yearly_budget')} LPA"
+                                    else:
+                                        payload[bk] = None
+                            row_keys = row.keys()
+                            job_id_db = (
+                                row["job_id"] if "job_id" in row_keys else
+                                (row["client_jd_id"] if "client_jd_id" in row_keys else "")
+                            )
+                            job_id_raw = payload.get("job_id") or job_id_db or ""
+                            created_at_db = row["created_at"] if "created_at" in row_keys else ""
+                            updated_at_db = str(row["updated_at"] or "") if "updated_at" in row_keys else ""
+
+                            field_change_history = []
+                            if "field_change_history" in row_keys and row["field_change_history"]:
+                                try:
+                                    field_change_history = json.loads(row["field_change_history"]) or []
+                                except Exception:
+                                    pass
+
+                            prov = payload.get("_provenance") if isinstance(payload.get("_provenance"), dict) else {}
+                            fa_raw = (
+                                payload.get("first_arrival_at") or
+                                prov.get("received_date_time") or
+                                prov.get("receivedDateTime") or
+                                payload.get("received_date_time") or
+                                payload.get("receivedDateTime") or
+                                payload.get("email_received_iso") or
+                                created_at_db or ""
+                            )
+                            arr_iso = fa_raw
+                            sort_ts = arr_iso or created_at_db or updated_at_db or ""
+
+                            client_jd = None
+                            if "client_jd_id" in row_keys and row["client_jd_id"]:
+                                client_jd = _clean_client_jd_id(row["client_jd_id"])
+                            if not client_jd:
+                                client_jd = _extract_real_client_jd_id(payload, job_id_raw)
+
+                            fmt_id = _format_internal_id(job_id_raw)
+                            ident = row["identity"] if ("identity" in row_keys and row["identity"]) else None
+                            if not ident:
+                                ident = compute_requirement_identity(
+                                    client=payload.get("requirement_from") or payload.get("client_key") or "",
+                                    client_jd_id=client_jd,
+                                    job_title=payload.get("job_title"),
+                                    location=payload.get("location"),
+                                    experience=payload.get("overall_experience") or payload.get("experience_level"),
+                                    mandatory_skills=payload.get("mandatory_skills"),
+                                )
+
+                            meta = {}
+                            try:
+                                cur_m = conn.execute(
+                                    "SELECT times_seen, last_seen, first_seen, state FROM requirement_identity WHERE identity = ?",
+                                    (ident,),
+                                ).fetchone()
+                                if cur_m:
+                                    meta = {
+                                        "times_seen": cur_m[0],
+                                        "last_seen": cur_m[1],
+                                        "first_seen": cur_m[2],
+                                        "state": cur_m[3],
+                                    }
+                            except Exception:
+                                pass
+
+                            canonical_id = fmt_id or _format_internal_id(job_id_raw or "")
+                            m = re.match(r"^(\d{4}[/-]\d{2}[/-]\d{2})[-_](\d+)$", canonical_id) if canonical_id else None
+                            if m:
+                                date_part = m.group(1).replace("-", "/")
+                                seq_num = int(m.group(2))
+                                seq_str = f"{seq_num:03d}" if seq_num < 1000 else f"{seq_num}"
+                                internal_id = f"{date_part}-{seq_str}"
+                            else:
+                                internal_id = canonical_id or job_id_raw
+                                seq_num = 0
+
+                            status_val = (
+                                payload.get("job_status")
+                                or payload.get("requirement_status")
+                                or (row["status"] if "status" in row_keys else "open")
+                            )
+                            payload["job_status"] = status_val
+                            payload["requirement_status"] = status_val
+                            payload["req_id"] = internal_id
+                            if client_jd:
+                                payload["client_jd_id"] = client_jd
+
+                            rec = {
+                                "raw_req_id": job_id_raw,
+                                "fmt_id": fmt_id,
+                                "client_jd_id": client_jd,
+                                "identity": ident,
+                                "times_seen": meta.get("times_seen", 1),
+                                "last_seen": meta.get("last_seen") or arr_iso or created_at_db,
+                                "first_seen": meta.get("first_seen") or arr_iso or created_at_db,
+                                "first_arrival_at": arr_iso,
+                                "arr_iso": arr_iso,
+                                "updated_at": updated_at_db,
+                                "sort_ts": sort_ts,
+                                "source_db": os.path.basename(db_path),
+                                "source_table": tbl,
+                                "tbl_priority": tbl_priority,
+                                "created_at": arr_iso or created_at_db,
+                                "former_job_id": row["former_job_id"] if "former_job_id" in row_keys else payload.get("former_job_id"),
+                                "payload": payload,
+                                "review_fields": row["review_fields"] if "review_fields" in row_keys else None,
+                                "field_change_history": field_change_history,
+                                "legacy_unverified": bool(row["legacy_unverified"]) if "legacy_unverified" in row_keys else bool(payload.get("legacy_unverified", False)),
+                                "mapping_version": row["mapping_version"] if "mapping_version" in row_keys else payload.get("mapping_version", 1),
+                                "former_payload": row["former_payload"] if "former_payload" in row_keys else payload.get("former_payload"),
+                                "client_key": normalize_client_key(payload.get("requirement_from") or payload.get("client_key") or ""),
+                                "job_status": status_val,
+                                "requirement_status": status_val,
+                                "req_id": internal_id,
+                                "req_seq": seq_num,
+                            }
+                            rec["status_history"] = fetch_status_history(config, target_norm) or fetch_status_history(config, internal_id)
+                            rec["field_change_history"] = fetch_field_change_history(config, target_norm) or field_change_history
+                            return rec
+                except sqlite3.OperationalError:
+                    pass
+        finally:
+            conn.close()
+    return None
 
 
 def get_requirement(config: dict, target_id: str) -> Optional[Dict[str, Any]]:
     """Retrieve details for a specific requirement ID, including full history.
     
-    Uses strict multi-tier lookup priority:
-      Tier 0: Exact match on universal requirement identity
-      Tier 1: Exact match on immutable stored job_id / raw_req_id / fmt_id
-      Tier 2: Exact match on genuine client_jd_id (e.g. RQ056293, 203178-1)
-      Tier 3: Match on assigned display req_id (e.g. 2026/09/30-044)
-      Tier 4: Match on former_job_id for renumbered records (R7)
+    Fast multi-tier lookup:
+      1. Check in-memory index map (_CACHE_RECORD_MAP) in O(1) time (< 0.0001s).
+      2. If not cached, query targeted SQLite row directly via fetch_single_record_direct (< 0.05s).
+      3. Only falls back to full fetch_all_records if direct query returns nothing.
     """
     rule = config.get("id_normalization_rule", {})
     target_norm = normalize_id(target_id, rule)
@@ -964,6 +1211,50 @@ def get_requirement(config: dict, target_id: str) -> Optional[Dict[str, Any]]:
         return None
 
     target_fmt = _format_internal_id(target_id)
+
+    # Tier 1: Instant In-Memory Cache Lookup
+    global _CACHE_RECORD_MAP, _CACHE_SIGNATURE
+    db_paths = config.get("db_paths", [])
+    current_sig = tuple(
+        (os.path.getmtime(p), os.path.getsize(p))
+        for p in db_paths
+        if os.path.exists(p)
+    )
+    if _CACHE_RECORD_MAP and _CACHE_SIGNATURE == current_sig:
+        matched = (
+            _CACHE_RECORD_MAP.get(target_id)
+            or _CACHE_RECORD_MAP.get(target_norm)
+            or (_CACHE_RECORD_MAP.get(target_fmt) if target_fmt else None)
+        )
+        if matched:
+            res = dict(matched)
+            res["status_history"] = fetch_status_history(config, target_norm)
+            if not res["status_history"] and matched.get("raw_req_id"):
+                res["status_history"] = fetch_status_history(config, matched["raw_req_id"])
+            if not res.get("field_change_history"):
+                res["field_change_history"] = fetch_field_change_history(config, target_norm)
+            if not res.get("field_change_history") and matched.get("client_jd_id"):
+                res["field_change_history"] = fetch_field_change_history(config, matched["client_jd_id"])
+            return res
+
+    # Tier 2: Targeted Direct SQLite Query (Loads ONLY this single requirement in ~0.02s)
+    direct_rec = fetch_single_record_direct(config, target_id, target_norm, target_fmt, rule)
+    if direct_rec:
+        if isinstance(_CACHE_RECORD_MAP, dict):
+            _CACHE_SIGNATURE = current_sig
+            _CACHE_RECORD_MAP[target_id] = direct_rec
+            _CACHE_RECORD_MAP[target_norm] = direct_rec
+            if target_fmt:
+                _CACHE_RECORD_MAP[target_fmt] = direct_rec
+            if direct_rec.get("identity"):
+                _CACHE_RECORD_MAP[direct_rec["identity"]] = direct_rec
+            if direct_rec.get("client_jd_id"):
+                _CACHE_RECORD_MAP[direct_rec["client_jd_id"]] = direct_rec
+            if direct_rec.get("req_id"):
+                _CACHE_RECORD_MAP[direct_rec["req_id"]] = direct_rec
+        return direct_rec
+
+    # Tier 3: Safety fallback to fetch_all_records only if direct lookup didn't find the record
     records = fetch_all_records(config, include_archived=True)
     matched = None
 
@@ -1028,12 +1319,46 @@ def get_req_id_suggestions(config: dict, prefix: str, limit: int = 15) -> List[s
     rule = config.get("id_normalization_rule", {})
     pfx_norm = normalize_id(prefix, rule)
 
-    records = fetch_all_records(config)
-    suggestions = []
-    for rec in records:
-        rid = rec["req_id"]
-        if not pfx_norm or pfx_norm in rid:
-            suggestions.append(rid)
-            if len(suggestions) >= limit:
+    # 1. Use memory cache if available
+    global _CACHE_RECORDS
+    cached = None
+    if isinstance(_CACHE_RECORDS, dict):
+        for k, v in _CACHE_RECORDS.items():
+            if v and len(v) == 3:
+                cached = v[2]
                 break
+    if cached:
+        suggestions = []
+        for rec in cached:
+            rid = rec["req_id"]
+            if not pfx_norm or pfx_norm in rid:
+                suggestions.append(rid)
+                if len(suggestions) >= limit:
+                    break
+        return suggestions
+
+    # 2. Direct fast indexed query on metaforge_requirements without scanning all payloads
+    suggestions = []
+    db_paths = config.get("db_paths", [])
+    for db_path in db_paths:
+        if not os.path.exists(db_path):
+            continue
+        try:
+            conn = _open_ro_connection(db_path)
+            if not conn:
+                continue
+            rows = conn.execute(
+                "SELECT job_id FROM metaforge_requirements WHERE job_id LIKE ? ORDER BY job_id DESC LIMIT ?",
+                (f"%{prefix}%", limit),
+            ).fetchall()
+            for r in rows:
+                if r["job_id"] and r["job_id"] not in suggestions:
+                    suggestions.append(r["job_id"])
+                    if len(suggestions) >= limit:
+                        break
+            conn.close()
+            if suggestions:
+                break
+        except Exception:
+            pass
     return suggestions

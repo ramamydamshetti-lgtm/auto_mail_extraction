@@ -152,10 +152,18 @@ class RequirementItem(BaseModel):
         bgt = d.get("budget_text") or d.get("budget") or d.get("monthly_budget_text") or d.get("rate") or d.get("ctc") or d.get("billing_rate")
         if bgt and not is_placeholder(bgt):
             bgt_str = str(bgt).strip()
-            if not d.get("budget_text"):
-                d["budget_text"] = bgt_str
-            if not d.get("budget"):
-                d["budget"] = bgt_str
+            if len(bgt_str) > 80 or "\n" in bgt_str or any(w in bgt_str.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner")):
+                if d.get("monthly_budget"):
+                    bgt_str = f"{d.get('monthly_budget')} / month"
+                elif d.get("yearly_budget"):
+                    bgt_str = f"{d.get('yearly_budget')} LPA"
+                else:
+                    bgt_str = None
+            if bgt_str:
+                if not d.get("budget_text"):
+                    d["budget_text"] = bgt_str
+                if not d.get("budget"):
+                    d["budget"] = bgt_str
 
         # 5. work_mode_text / work_mode
         wm = d.get("work_mode_text") or d.get("work_mode")

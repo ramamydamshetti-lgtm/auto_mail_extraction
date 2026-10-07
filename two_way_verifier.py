@@ -136,7 +136,12 @@ def parse_budget_details(raw_budget: str | None) -> dict[str, Any]:
         return res
 
     b_text = str(raw_budget).strip()
-    res["budget_text"] = b_text
+    is_body_like = (
+        len(b_text) > 80
+        or "\n" in b_text
+        or any(w in b_text.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner", "submission", "resume", "pls ensure", "subject line"))
+    )
+    res["budget_text"] = None if is_body_like else b_text
     lower = b_text.lower()
 
     # Detect currency strictly if stated (F3, A5)
@@ -150,6 +155,8 @@ def parse_budget_details(raw_budget: str | None) -> dict[str, Any]:
         res["budget_currency"] = "GBP"
     elif lpa_implies_inr() and re.search(r"\blpa\b", lower):
         res["budget_currency"] = "INR"
+    elif re.search(r"\b\d{1,2},\d{2},\d{3}\b", b_text) or "lpm" in lower or "/ m" in lower or "/m" in lower:
+        res["budget_currency"] = "INR"
 
     # Non-numeric phrases stay in budget_text; numbers stay NULL (F3)
     if any(p in lower for p in ["negotiable", "as per market", "competitive", "market standards", "best in industry"]):
@@ -162,6 +169,22 @@ def parse_budget_details(raw_budget: str | None) -> dict[str, Any]:
 
     # Extract digits: range or single (strip commas between digits like 80,000)
     clean_digits_text = re.sub(r"(?<=\d),(?=\d)", "", b_text)
+    m_tiered = re.findall(r"(?:(\d+(?:\.\d+)?)\s*k\b|(\d+(?:\.\d+)?)\s*(?:l\b|lakhs?))", clean_digits_text, re.I)
+    if ("rate" in lower or "tpc" in lower or "tier" in lower) and len(m_tiered) >= 2:
+        vals = []
+        for kv, lv in m_tiered:
+            if kv:
+                vals.append(float(kv) * 1000)
+            elif lv:
+                vals.append(float(lv) * 100000)
+        if vals:
+            res["budget_currency"] = "INR"
+            res["monthly_budget_min"] = min(vals)
+            res["monthly_budget_max"] = max(vals)
+            res["monthly_budget"] = max(vals)
+            res["budget_text"] = f"{int(min(vals)):,} - {int(max(vals)):,} / month"
+            return res
+
     m_range = re.search(r"(\d+(?:\.\d+)?)\s*(?:-|to|–|—)\s*(\d+(?:\.\d+)?)", clean_digits_text)
     m_k = re.search(r"(\d+(?:\.\d+)?)\s*k\b", clean_digits_text, re.I)
     m_lakh = re.search(r"(\d+(?:\.\d+)?)\s*(?:l\b|lakhs?|lpa\b|lpm\b)", clean_digits_text, re.I)
@@ -171,6 +194,7 @@ def parse_budget_details(raw_budget: str | None) -> dict[str, Any]:
         if m_range:
             res["monthly_budget_min"] = float(m_range.group(1))
             res["monthly_budget_max"] = float(m_range.group(2))
+            res["monthly_budget"] = float(m_range.group(2))
         elif m_k:
             val = float(m_k.group(1)) * 1000
             res["monthly_budget"] = val
@@ -216,6 +240,14 @@ def parse_budget_details(raw_budget: str | None) -> dict[str, Any]:
                 res["yearly_budget"] = val
                 res["yearly_budget_min"] = val
 
+    if is_body_like:
+        if res.get("monthly_budget"):
+            res["budget_text"] = f"{int(res['monthly_budget']):,} / month"
+        elif res.get("yearly_budget"):
+            res["budget_text"] = f"{res['yearly_budget']} LPA"
+        else:
+            res["budget_text"] = None
+
     return res
 
 
@@ -234,6 +266,7 @@ def deterministic_extract_block(block_text: str, client_name: str | None = None)
         "experience_text": None,
         "experience_min_years": None,
         "experience_max_years": None,
+        "number_of_positions": None,
         "budget": None,
         "budget_text": None,
         "budget_currency": None,
@@ -255,25 +288,32 @@ def deterministic_extract_block(block_text: str, client_name: str | None = None)
 
     # Helper to find lines matching label patterns
     def extract_label_value(labels: tuple[str, ...]) -> tuple[str | None, str | None]:
+        is_pos_query = any("position" in l or "headcount" in l or "opening" in l for l in labels)
         for lbl in labels:
             pat = rf"(?i)^\s*(?:[-*•]\s*)?{re.escape(lbl)}\s*[:=\-–—|]\s*(.+)$"
             for line in lines:
                 m = re.match(pat, line)
                 if m:
                     val = m.group(1).strip()
-                    if val and not is_placeholder(val) and not re.search(r"(?i)\b(?:open\s*positions?|positions?\s*[-:]?\s*\d)\b", m.group(0)):
+                    if val and not is_placeholder(val):
+                        if not is_pos_query and re.search(r"(?i)\b(?:open\s*positions?|positions?\s*[-:]?\s*\d)\b", m.group(0)):
+                            continue
                         return val, m.group(0)
             # Multiline lookup on same line
             m_multi = re.search(rf"(?im)^\s*(?:[-*•]\s*)?{re.escape(lbl)}\s*[:=\-–—|]\s*([^\n\r]+)", clean_block)
             if m_multi:
                 val = m_multi.group(1).strip()
-                if val and not is_placeholder(val) and not re.search(r"(?i)\b(?:open\s*positions?|positions?\s*[-:]?\s*\d)\b", m_multi.group(0)):
+                if val and not is_placeholder(val):
+                    if not is_pos_query and re.search(r"(?i)\b(?:open\s*positions?|positions?\s*[-:]?\s*\d)\b", m_multi.group(0)):
+                        continue
                     return val, m_multi.group(0)
-            # Multiline lookup with value on next line (e.g. Requirement -\nSoftware Engineer)
-            m_nl = re.search(rf"(?im)^\s*(?:[-*•]\s*)?{re.escape(lbl)}\s*[:=\-–—|]\s*\r?\n\s*([^\r\n]+)", clean_block)
+            # Multiline lookup with value on next line or separated across lines (e.g. Overall exp\n–\n5-8 Years)
+            m_nl = re.search(rf"(?im)^\s*(?:[-*•]\s*)?{re.escape(lbl)}\s*(?:[:=\-–—|]\s*)?(?:\r?\n\s*[:=\-–—|]?\s*)+([^\r\n]+)", clean_block)
             if m_nl:
-                val = m_nl.group(1).strip()
-                if val and not is_placeholder(val) and not re.search(r"(?i)\b(?:open\s*positions?|positions?\s*[-:]?\s*\d)\b", m_nl.group(0)):
+                val = m_nl.group(1).strip(" :-–—|\t")
+                if val and not is_placeholder(val):
+                    if not is_pos_query and re.search(r"(?i)\b(?:open\s*positions?|positions?\s*[-:]?\s*\d)\b", m_nl.group(0)):
+                        continue
                     return val, m_nl.group(0)
         return None, None
 
@@ -313,19 +353,38 @@ def deterministic_extract_block(block_text: str, client_name: str | None = None)
     # 4. Budget (F3, F4)
     raw_bgt, quote_bgt = extract_label_value(FIELD_LABEL_SYNONYMS["budget"])
     if raw_bgt and not is_placeholder(raw_bgt):
-        bgt_dict = parse_budget_details(raw_bgt)
-        extracted.update(bgt_dict)
-        extracted["budget"] = raw_bgt
-        quotes["budget"] = quote_bgt or raw_bgt
+        is_bl = (
+            len(raw_bgt) > 80
+            or "\n" in raw_bgt
+            or any(w in raw_bgt.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner", "submission", "resume"))
+        )
+        if not is_bl:
+            bgt_dict = parse_budget_details(raw_bgt)
+            extracted.update(bgt_dict)
+            extracted["budget"] = bgt_dict.get("budget_text") or raw_bgt
+            quotes["budget"] = quote_bgt or raw_bgt
 
     # 5. Mandatory Skills (F5)
     raw_mand, quote_mand = extract_label_value(FIELD_LABEL_SYNONYMS["mandatory_skills"])
     if raw_mand and not is_placeholder(raw_mand):
-        mand_skills = [
-            s.strip()
-            for s in re.split(r"[,\n;/|•*]+", raw_mand)
-            if s.strip() and not is_placeholder(s.strip())
-        ]
+        def _parse_mand_tokens(raw: str) -> list[str]:
+            raw_c = raw.strip().rstrip('.')
+            chunks = re.split(r'(?:[,\n;|•*]|\s+&\s+|\s+and\s+)+', raw_c)
+            res = []
+            for c in chunks:
+                c = c.strip(' .:-–—\t')
+                if not c:
+                    continue
+                sub_tokens = re.split(r'\s+(?=(?:C\+\+|Rust|C#|Python|Java|React|Go|Golang)\b)|\s+[-–—]\s+', c, flags=re.I)
+                for st in sub_tokens:
+                    st = st.strip(' :-–—\t').rstrip('.')
+                    if not st.lower().startswith('.net'):
+                        st = st.lstrip('.')
+                    if st and (len(st) > 1 or st.upper() in ("C", "R")):
+                        res.append(st)
+            return res or [raw_c]
+
+        mand_skills = _parse_mand_tokens(raw_mand)
         # Never job title, never candidate template headers (F5, F6)
         jt_lower = (extracted.get("job_title") or "").strip().lower()
         mand_skills = [
@@ -360,7 +419,7 @@ def deterministic_extract_block(block_text: str, client_name: str | None = None)
     if skills_from_requirement_sections() and not extracted.get("skills"):
         # Look for JD / Requirement section mentioning tech
         m_tech = re.search(
-            r"(?is)(?:job\s+description|jd|responsibilities|qualifications|role\s+summary|about\s+the\s+role)\s*[:=\-–—|]\s*(.+?)(?=\n\s*(?:skills|location|ctc|budget|notice|regards|$))",
+            r"(?is)(?:job\s+description|jd|responsibilities|qualifications|role\s+summary|about\s+the\s+role|detailed\s+jd)\s*[:=\-–—|]?\s*(.+?)(?=\n\s*(?:skills|location|ctc|budget|notice|regards|$))",
             clean_block,
         )
         if m_tech:
@@ -372,6 +431,8 @@ def deterministic_extract_block(block_text: str, client_name: str | None = None)
                 "Java", "Spring Boot", "AWS", "Python", "SQL", "Docker", "Kubernetes",
                 "Azure", "GCP", "React", "Angular", "Node.js", "C++", "C#", ".NET",
                 "Kafka", "Microservices", "SAP", "ABAP", "Snowflake", "Databricks",
+                "Rust", "GitLab", "Jira", "Linux", "LAN", "Cyber Security",
+                "PLC", "DCS", "Emerson DeltaV", "DeltaV", "Automation",
             ]
             for tech in common_techs:
                 if re.search(rf"\b{re.escape(tech)}\b", jd_text, re.I):
@@ -405,6 +466,21 @@ def deterministic_extract_block(block_text: str, client_name: str | None = None)
                 extracted["work_mode_text"] = wm_text
                 quotes["work_mode"] = m_arr.group(0).strip()
 
+    # 9. Number of Positions / Headcount
+    pos_labels = FIELD_LABEL_SYNONYMS.get(
+        "number_of_positions",
+        ("open positions", "open position", "positions", "openings", "number of positions", "no of positions", "headcount"),
+    )
+    raw_pos, quote_pos = extract_label_value(pos_labels)
+    if raw_pos and not is_placeholder(raw_pos):
+        m_p = re.search(r"\b(\d{1,3})\b", raw_pos)
+        if m_p:
+            try:
+                extracted["number_of_positions"] = int(m_p.group(1))
+                quotes["number_of_positions"] = quote_pos or raw_pos
+            except ValueError:
+                pass
+
     return extracted
 
 
@@ -431,6 +507,7 @@ def reconcile_two_way(
         "job_title",
         "location",
         "experience",
+        "number_of_positions",
         "budget",
         "mandatory_skills",
         "skills",
@@ -507,6 +584,9 @@ def reconcile_two_way(
                 for bk in ["budget_text", "yearly_budget", "yearly_budget_min", "yearly_budget_max", "monthly_budget", "monthly_budget_min", "monthly_budget_max", "budget_currency"]:
                     if det_item.get(bk) is not None:
                         reconciled[bk] = det_item.get(bk)
+            elif field == "number_of_positions":
+                if det_item.get("number_of_positions") is not None:
+                    reconciled["number_of_positions"] = det_item.get("number_of_positions")
             elif field == "work_mode":
                 if det_item.get("work_mode_text"):
                     reconciled["work_mode_text"] = det_item.get("work_mode_text")
@@ -571,6 +651,16 @@ def reconcile_two_way(
             val_bk = ai_item.get(bk) if ai_item.get(bk) is not None else det_item.get(bk)
             if val_bk is not None:
                 reconciled[bk] = val_bk
+    for bk in ("budget", "budget_text"):
+        val_str = str(reconciled.get(bk) or "")
+        if val_str and (len(val_str) > 80 or "\n" in val_str or any(w in val_str.lower() for w in ("dear", "kindly", "hello", "hi ", "regards", "candidate", "partner"))):
+            if reconciled.get("monthly_budget"):
+                reconciled[bk] = f"{int(reconciled['monthly_budget']):,} / month"
+            elif reconciled.get("yearly_budget"):
+                reconciled[bk] = f"{reconciled['yearly_budget']} LPA"
+            else:
+                reconciled[bk] = None
+
     if not reconciled.get("budget_text") and reconciled.get("budget"):
         reconciled["budget_text"] = reconciled["budget"]
     if not reconciled.get("budget") and reconciled.get("budget_text"):
@@ -586,6 +676,19 @@ def reconcile_two_way(
     # Propagate work mode text
     if reconciled.get("work_mode_text") is None:
         reconciled["work_mode_text"] = ai_item.get("work_mode_text") or det_item.get("work_mode_text") or reconciled.get("work_mode")
+
+    # Clean skills from template leakage
+    for sk in ("mandatory_skills", "skills"):
+        if isinstance(reconciled.get(sk), list):
+            reconciled[sk] = [
+                s for s in reconciled[sk]
+                if str(s).strip().lower() not in CANDIDATE_TEMPLATE_HEADINGS
+                and not any(h in str(s).strip().lower() for h in (
+                    "full name", "mail id", "mobile no", "resumes sent date", "qualification",
+                    "rate card", "joiners required", "work location", "current organization",
+                    "current location", "job location", "s/r num", "vendor name", "position title"
+                ))
+            ]
 
     reconciled["recovered_by"] = recovered_by
     reconciled["review_candidates"] = review_candidates

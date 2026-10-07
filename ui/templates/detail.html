@@ -263,7 +263,18 @@
 
         <div class="overview-field">
           <div class="field-label">BUDGET / RATE</div>
-          <div class="field-value">{{ p.get('budget_text') or p.get('budget') or '—' }}</div>
+          <div class="field-value">
+            {% set bval = p.get('budget_text') or p.get('budget') or '' %}
+            {% if bval and bval|length <= 80 and '\n' not in bval and not ('dear' in bval|lower or 'kindly' in bval|lower or 'partner' in bval|lower or 'candidate' in bval|lower) %}
+              {{ bval }}
+            {% elif p.get('monthly_budget') %}
+              {{ p.get('monthly_budget') }} / month
+            {% elif p.get('yearly_budget') %}
+              {{ p.get('yearly_budget') }} LPA
+            {% else %}
+              —
+            {% endif %}
+          </div>
         </div>
 
         <div class="overview-field">
@@ -382,7 +393,7 @@
               ('job_title', p.get('job_title')),
               ('location', p.get('location')),
               ('experience', p.get('experience_text') or p.get('overall_experience') or p.get('experience')),
-              ('budget', p.get('budget_text') or p.get('yearly_budget') or p.get('monthly_budget')),
+              ('budget', p.get('monthly_budget') ~ ' / month' if p.get('monthly_budget') else (p.get('yearly_budget') ~ ' LPA' if p.get('yearly_budget') else (p.get('budget_text') if p.get('budget_text') and p.get('budget_text')|length <= 80 and '\n' not in p.get('budget_text') else None))),
               ('mandatory_skills', p.get('mandatory_skills')),
               ('skills', p.get('skills')),
               ('notice_period', p.get('notice_period')),
@@ -718,6 +729,24 @@
 </div>
 
 <script>
+// Dynamic detail fetching using selected requirement's existing unique ID/identity
+document.addEventListener('DOMContentLoaded', function() {
+  const reqId = "{{ req_id }}";
+  if (reqId && reqId !== '—') {
+    fetch('/api/requirement/' + encodeURIComponent(reqId))
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        window.__selectedRequirementData = data;
+      })
+      .catch(function(err) {
+        console.warn('Requirement detail API fetch notice:', err);
+      });
+  }
+});
+
 function switchTab(tabName, btn) {
   const panes = document.querySelectorAll('.tab-pane');
   panes.forEach(p => p.style.display = 'none');

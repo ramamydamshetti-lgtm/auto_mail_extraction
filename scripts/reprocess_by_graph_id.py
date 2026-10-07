@@ -20,10 +20,15 @@ from processed_store import ProcessedStore
 from utils import setup_logging
 
 
-def _clear_pipeline_state(store: ProcessedStore, graph_id: str) -> None:
+def _clear_pipeline_state(store: ProcessedStore, graph_id: str, inet_id: str = "") -> None:
     store._conn.execute("DELETE FROM pipeline_state WHERE graph_id = ?", (graph_id,))
     store._conn.execute("DELETE FROM processed WHERE graph_id = ?", (graph_id,))
     store._conn.execute("DELETE FROM requirement_fingerprints WHERE graph_id = ?", (graph_id,))
+    store._conn.execute("DELETE FROM duplicate_decisions WHERE source_email_id = ?", (graph_id,))
+    store._conn.execute("DELETE FROM seen_messages WHERE graph_id = ?", (graph_id,))
+    if inet_id:
+        store._conn.execute("DELETE FROM seen_messages WHERE internet_message_id = ?", (inet_id,))
+    store._conn.execute("DELETE FROM pending_reviews WHERE graph_id = ?", (graph_id,))
     store._conn.commit()
 
 
@@ -49,7 +54,8 @@ def main() -> int:
     with ProcessedStore(settings.processed_db) as store:
         prev = store.pipeline_get_state(gid)
         print(f"Previous pipeline state: {prev or '(none)'}")
-        _clear_pipeline_state(store, gid)
+        inet_id = str(raw.get("internetMessageId") or "").strip()
+        _clear_pipeline_state(store, gid, inet_id)
         synced = process_single_message(
             raw,
             token=token,
