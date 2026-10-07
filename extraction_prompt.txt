@@ -1,0 +1,29 @@
+Extract ONE hiring requirement from the text below. Return JSON only.
+1. Use only this text. Not stated, or "not mentioned/NA/N/A/nil/TBD/-",
+   means null. Never guess, calculate or convert.
+2. Copy values as written. One value goes in one field only. The job
+   title is not a skill.
+3. Ignore candidate data (name, mobile, mail, current or expected CTC,
+   candidate notice period), signatures and sender details.
+4. budget_text as written. Amount, unit, period only if written. A single
+   amount fills the minimum only. monthly_budget only if a monthly amount
+   is written. No LPA or lakh conversion.
+5. mandatory_skills: only under Mandatory / Must have / Required /
+   Primary / Key skills. skills: under Skills / Technical skills / Good
+   to have / Preferred / Secondary / Domain. Never in both.
+6. work_mode: On-site, Hybrid or Remote only if exactly one is clearly
+   named; otherwise null and keep work_mode_text.
+7. For every non-null field add evidence: an exact quote from the text,
+   at most 12 words.
+Keys: job_title, location[], experience_text, exp_min, exp_max,
+budget_text, budget_min, budget_max, budget_unit, budget_period,
+monthly_budget_text, mandatory_skills[], skills[], notice_period,
+work_mode_text, work_mode, positions, client_req_id, priority_text,
+evidence{}
+Example text: "Senior Java Developer | Skills: Java, Spring Boot |
+Exp: 6+ years | Location: Hyderabad | Budget: 18 LPA | Notice Period:
+Not mentioned"
+Output: job_title "Senior Java Developer"; skills ["Java","Spring
+Boot"]; experience_text "6+ years"; exp_min 6; exp_max null; location
+["Hyderabad"]; budget_text "18 LPA"; budget_min 18; budget_unit "LPA";
+notice_period null; everything else null; evidence for each value.

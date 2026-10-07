@@ -1,0 +1,167 @@
+{
+  "summary": {
+    "overall_accuracy": 0.35473791973791974,
+    "job_title_accuracy": 0.8886486486486486,
+    "experience_accuracy": 0.030303030303030314,
+    "skills_accuracy": 0.0,
+    "location_accuracy": 0.5,
+    "schema_compliance_rate": 1.0,
+    "hallucination_rate": 0.0,
+    "samples_evaluated": 3.0
+  },
+  "samples": [
+    {
+      "id": "kpmg_2026_04_16_sa_technical_pm_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.9459459459459459,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Technical Project Manager - Data & AI",
+        "experience": "7+ years",
+        "skills": "PMP, Agile Scrum, professional services delivery, AI program governance",
+        "location": "Bangalore",
+        "budget": "AM and below : 20",
+        "number_of_positions": 10,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Technical Project Manager Data & AI",
+        "number_of_positions": 10,
+        "experience_level": "Mid Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": null,
+        "yearly_budget_max": null,
+        "mandatory_skills": [
+          "PMP",
+          "Technical Project Communication"
+        ],
+        "skills": [
+          "Data",
+          "AI"
+        ],
+        "experience": "unknown",
+        "notice_period": "unknown",
+        "priority": "HIGH",
+        "client_name": "unknown",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.0,
+          "skills": 0.9,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "kpmg_2026_03_31_fte_cloud_security_multi_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.72,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 0.5
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Junior Security Architect",
+        "experience": "9-12+ years",
+        "skills": "NIST, ISO27001, GDPR, STRIDE, DevSecOps, Kubernetes security",
+        "location": "Bangalore",
+        "budget": "14-16 Lakh",
+        "number_of_positions": 5,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Security Architect",
+        "number_of_positions": 1,
+        "experience_level": "Senior Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore",
+          "Hyderabad"
+        ],
+        "yearly_budget_min": null,
+        "yearly_budget_max": null,
+        "mandatory_skills": [
+          "Cloud Security",
+          "Security Architecture"
+        ],
+        "skills": [
+          "Cloud Security",
+          "Security Architecture"
+        ],
+        "experience": "unknown",
+        "notice_period": "unknown",
+        "priority": "HIGH",
+        "client_name": "unknown",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.95,
+          "budget": 0.0,
+          "skills": 0.8,
+          "location": 0.9
+        }
+      }
+    },
+    {
+      "id": "kpmg_2026_04_16_jr_security_architect_recoverability_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 0.09090909090909094,
+        "skills": 0.0,
+        "location": 0.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Junior Security Architect",
+        "experience": "9-12+ years",
+        "skills": "Cloud security architecture, NIST, ISO27001, STRIDE, DevSecOps",
+        "location": "Bangalore",
+        "budget": "14-16 Lak",
+        "number_of_positions": 5,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Junior Security Architect",
+        "number_of_positions": 1,
+        "experience_level": "Entry Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [],
+        "yearly_budget_min": null,
+        "yearly_budget_max": null,
+        "mandatory_skills": [
+          "Security Architecture",
+          "Risk Management",
+          "Disaster Recovery",
+          "DevOps"
+        ],
+        "skills": [
+          "Cloud Recoverability"
+        ],
+        "experience": "Junior",
+        "notice_period": "",
+        "priority": "HIGH",
+        "client_name": "unknown",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.95,
+          "budget": 0.0,
+          "skills": 0.8,
+          "location": 0.0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,263 @@
+[
+  {
+    "id": "ltts_2026_03_16_teamcenter_admin_developer_001",
+    "subject": "Teamcenter Admin and Teamcenter Developer_Chennai_TPC",
+    "body": "Open positions: 1 each for Teamcenter Admin and Teamcenter Developer. Experience: 4-5 years. Location: Chennai. Budget per month: Teamcenter Admin 1.20-1.35L, Teamcenter Developer 1.35-1.5L. Immediate priority.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Teamcenter Admin",
+          "experience": "4-5 years",
+          "skills": "Teamcenter RAC, AWC, FMS, PLMXML, TCXML, CREO, BMIDE",
+          "location": "Chennai",
+          "budget": "1.20-1.35L per month",
+          "number_of_positions": 1,
+          "client_name": "LTTS" 
+        },
+        {
+          "job_title": "Teamcenter Developer",
+          "experience": "4-5 years",
+          "skills": "BMIDE, ITK, SOA, RAC plugin, AWC customization, SAP integration",
+          "location": "Chennai",
+          "budget": "1.35-1.5L per month",
+          "number_of_positions": 1,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltts_2026_02_03_ms_cornerstone_lms_001",
+    "subject": "MS+Cornerstone-Bangalore/Mysore-TPC",
+    "body": "Mandatory skills: Cornerstone hands-on and LMS. Positions: 3. Location: Bangalore/Mysore. Bill rate max: 100000-110000 per month.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Cornerstone LMS Administrator",
+          "experience": "",
+          "skills": "Cornerstone LMS, SCORM, AICC, ServiceNow, LMS reporting",
+          "location": "Bangalore, Mysore",
+          "budget": "100000-110000 per month",
+          "number_of_positions": 3,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "kpmg_2026_03_30_c2h_data_scientist_001",
+    "subject": "RE: Subcon- C2H Data Scientist",
+    "body": "Total positions: 25. Location: Bangalore. Mode: Hybrid. Roles: Lead AI Engineer (7-10 years, 10 positions, 2.75 lacs/month), Senior AI Engineer (4-7 years, 10 positions, 2.3 lacs/month), AI Engineer (2-3 years, 5 positions, 1.8 lacs/month).",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Lead AI Engineer",
+          "experience": "7-10 years",
+          "skills": "AI engineering",
+          "location": "Bangalore",
+          "budget": "2.75 lacs per month",
+          "number_of_positions": 10,
+          "client_name": "KPMG"
+        },
+        {
+          "job_title": "Senior AI Engineer",
+          "experience": "4-7 years",
+          "skills": "AI engineering",
+          "location": "Bangalore",
+          "budget": "2.3 lacs per month",
+          "number_of_positions": 10,
+          "client_name": "KPMG"
+        },
+        {
+          "job_title": "AI Engineer",
+          "experience": "2-3 years",
+          "skills": "AI engineering",
+          "location": "Bangalore",
+          "budget": "1.8 lacs per month",
+          "number_of_positions": 5,
+          "client_name": "KPMG"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltts_2026_04_20_civil_structural_sr_engineer_001",
+    "subject": "TPC - Requirement - Civil and Structural Sr Engineer , Vadodara , Chennai",
+    "body": "Open positions: 6. Experience: 7-13 years. Location: Chennai and Vadodara. Bill rate: 1.6L per month. Domain: Petrochemical/Oil & Gas.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Civil and Structural Sr Engineer",
+          "experience": "7-13 years",
+          "skills": "STAAD.Pro, RAM Connection, IDEA StatiCa, Foundation 3D, API, ASCE",
+          "location": "Chennai, Vadodara",
+          "budget": "1.6L per month",
+          "number_of_positions": 6,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltts_2026_04_21_piping_checker_vadodara_001",
+    "subject": "TPC - Requirement - Piping Checker , Vadodara",
+    "body": "Open positions: 1. Experience: 5-7 years. Work location: Vadodara. Bill rate: 1.4L per month.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Piping Checker",
+          "experience": "5-7 years",
+          "skills": "Piping Isometrics, Piping GA, Pipe support drawings, Navisworks, P&ID",
+          "location": "Vadodara",
+          "budget": "1.4L per month",
+          "number_of_positions": 1,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltts_2026_04_21_high_speed_design_engineer_001",
+    "subject": "RE: Requirement – High Speed Design Engineer – Bangalore",
+    "body": "Open positions: 10. Experience: 5-10 years. Location: Bangalore. Bill rate: 150000 per month. Domain: Embedded.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "High Speed Design Engineer",
+          "experience": "5-10 years",
+          "skills": "OrCAD, Allegro, DDR5/6, GPU, Ethernet, camera interfaces",
+          "location": "Bangalore",
+          "budget": "150000 per month",
+          "number_of_positions": 10,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltts_2026_04_21_automotive_hardware_engineer_001",
+    "subject": "TPC Requirement – Automotive Hardware – Bangalore.",
+    "body": "Open positions: 3. Experience: 5-7 years. Location: Bangalore. Bill rate: 130000 per month.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Automotive Hardware Engineer",
+          "experience": "5-7 years",
+          "skills": "PSPICE, LTSpice, MATHCAD, OrCAD, Altium, DxDesigner",
+          "location": "Bangalore",
+          "budget": "130000 per month",
+          "number_of_positions": 3,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltts_2026_04_21_stress_analysis_bangalore_001",
+    "subject": "TPC- Stress Analysis for Bangalore-TPC",
+    "body": "Overall experience 6+ years. Open positions 4. Work location Bangalore. Mandatory skills include Patran/Nastran, load path, FEA, FBD. Bill rate 90000 per month.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Stress Analysis Engineer",
+          "experience": "6+ years",
+          "skills": "Patran, Nastran, FEA, fatigue analysis, composite structures",
+          "location": "Bangalore",
+          "budget": "90000 per month",
+          "number_of_positions": 4,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltts_2026_04_21_data_analyst_vadodara_001",
+    "subject": "TPC Data Analyst for Vadodara-TPC",
+    "body": "Data Analyst for Mechanical/Instrumentation maintenance. Experience 3-6 years. Open positions 5-7. Location Vadodara. Bill rate 50000-60000 per month.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Data Analyst - Mechanical/Instrumentation",
+          "experience": "3-6 years",
+          "skills": "P&ID, datasheet, SLD, DCS, PLC, Excel, Access",
+          "location": "Vadodara",
+          "budget": "50000-60000 per month",
+          "number_of_positions": 6,
+          "client_name": "LTTS"
+        }
+      ]
+    }
+  },
+  {
+    "id": "kpmg_2026_04_16_sa_technical_pm_001",
+    "subject": "FTE & FTS | SA & Technical PM",
+    "body": "Urgent role for Technical Project Manager Data & AI. Positions: 10. Location: Bangalore. Mode: F2F. Must have PMP and strong technical/project communication.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Technical Project Manager - Data & AI",
+          "experience": "7+ years",
+          "skills": "PMP, Agile Scrum, professional services delivery, AI program governance",
+          "location": "Bangalore",
+          "budget": "AM and below : 20",
+          "number_of_positions": 10,
+          "client_name": "KPMG"
+        }
+      ]
+    }
+  },
+  {
+    "id": "kpmg_2026_03_31_fte_cloud_security_multi_001",
+    "subject": "FTE- Cloud security",
+    "body": "Urgent cloud security FTE requirements including Security Architect, WAF migration, Cloud GRC, and Wiz/CNAPP tracks across Bangalore and Hyderabad.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Junior Security Architect",
+          "experience": "9-12+ years",
+          "skills": "NIST, ISO27001, GDPR, STRIDE, DevSecOps, Kubernetes security",
+          "location": "Bangalore",
+          "budget": "14-16 Lakh",
+          "number_of_positions": 5,
+          "client_name": "KPMG"
+        },
+        {
+          "job_title": "Cloud Recoverability and Risk Assurance Engineer",
+          "experience": "5+ years",
+          "skills": "DevOps, Azure, CI/CD, IaC, recoverability assurance",
+          "location": "Bangalore",
+          "budget": "20-25 Lakh",
+          "number_of_positions": 2,
+          "client_name": "KPMG"
+        }
+      ]
+    }
+  },
+  {
+    "id": "kpmg_2026_04_16_jr_security_architect_recoverability_001",
+    "subject": "FTE | Jr. Security Architect & Risk Management - Disaster recovery/Devops",
+    "body": "Urgent FTE requirement for Junior Security Architect and cloud recoverability assurance role. Wiz and WAF on hold.",
+    "expected": {
+      "requirements": [
+        {
+          "job_title": "Junior Security Architect",
+          "experience": "9-12+ years",
+          "skills": "Cloud security architecture, NIST, ISO27001, STRIDE, DevSecOps",
+          "location": "Bangalore",
+          "budget": "14-16 Lak",
+          "number_of_positions": 5,
+          "client_name": "KPMG"
+        },
+        {
+          "job_title": "Cloud Recoverability and Risk Assurance Engineer",
+          "experience": "5+ years",
+          "skills": "DevOps, Cloud recoverability, CI/CD, IaC, audit assurance",
+          "location": "Bangalore",
+          "budget": "20-25 Lakh",
+          "number_of_positions": 2,
+          "client_name": "KPMG"
+        }
+      ]
+    }
+  }
+]

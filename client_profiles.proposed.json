@@ -1,0 +1,123 @@
+{
+  "description": "Proposed client profile config store (Step 0 discovery, unactivated)",
+  "clients": {
+    "accenture": {
+      "client_key": "accenture",
+      "display_name": "Accenture",
+      "enabled": true,
+      "sender_domains": [
+        "iexcel.co.in"
+      ],
+      "sender_addresses": [
+        "anusha.k@iexcel.co.in"
+      ],
+      "table_req_id_headers": [
+        "Request-ID",
+        "Request ID",
+        "Req ID",
+        "Req-ID",
+        "ReqID",
+        "SO ID",
+        "Demand ID"
+      ],
+      "table_status_headers": [
+        "Priority",
+        "Status",
+        "Job Status",
+        "Demand Status"
+      ],
+      "status_mapping": {
+        "p1": "open",
+        "p2": "open",
+        "p3": "open",
+        "open": "open",
+        "hold": "hold",
+        "on hold": "hold",
+        "on-hold": "hold"
+      },
+      "req_id_normalization": {
+        "trim": true,
+        "case": "upper",
+        "pattern": "^\\d{5,8}(-\\d+)?$"
+      },
+      "req_id_tracking": {
+        "enabled": true,
+        "bypass_24h_fingerprint": true
+      }
+    }
+  },
+  "discovery_findings": {
+    "step_0a_accenture_emails_in_latest_500": [
+      {
+        "row_index": 109,
+        "sender_address": "Divya.Grover@itcinfotech.com",
+        "sender_domain": "itcinfotech.com",
+        "subject": "RE: Profiles for SAP PS Consultant",
+        "passes_allowlist": true
+      },
+      {
+        "row_index": 116,
+        "sender_address": "rahima.s@metaforgeit.com",
+        "sender_domain": "metaforgeit.com",
+        "subject": "RE: Profiles for SAP PS Consultant",
+        "passes_allowlist": false
+      },
+      {
+        "row_index": 126,
+        "sender_address": "Divya.Grover@itcinfotech.com",
+        "sender_domain": "itcinfotech.com",
+        "subject": "Profiles for SAP PS Consultant",
+        "passes_allowlist": true
+      },
+      {
+        "row_index": 128,
+        "sender_address": "Thirumal.Govindan@itcinfotech.com",
+        "sender_domain": "itcinfotech.com",
+        "subject": "RE: Profiles for SAP PS Consultant",
+        "passes_allowlist": true
+      },
+      {
+        "row_index": 148,
+        "sender_address": "rahima.s@metaforgeit.com",
+        "sender_domain": "metaforgeit.com",
+        "subject": "Profiles for SAP PS Consultant",
+        "passes_allowlist": false
+      },
+      {
+        "row_index": 433,
+        "sender_address": "saikiran.a@metaforgeit.com",
+        "sender_domain": "metaforgeit.com",
+        "subject": "Fw: Sub-con | Power BI, Azure Data Engineers, Snowflake, AI Engineer",
+        "passes_allowlist": false
+      }
+    ],
+    "step_0b_sample_table": {
+      "exact_column_headers": [
+        "Request-ID",
+        "Equivalent Grade",
+        "Skills - Name",
+        "Location Flex",
+        "RTO/Hybrid/WFH",
+        "Budget/monthly",
+        "Relevant Exp",
+        "Education",
+        "Priority"
+      ],
+      "req_id_column": "Request-ID",
+      "status_column": "Priority"
+    },
+    "step_0b_distinct_statuses": [
+      "P1",
+      "P2"
+    ],
+    "step_0c_req_id_reused": true,
+    "step_0c_req_id_patterns": [
+      "NNNNNN-N"
+    ],
+    "step_0d_metaforge_capability": {
+      "sqlite_mode": "Supports UPDATE via INSERT OR REPLACE INTO metaforge_requirements (job_id, payload_json, created_at) VALUES (?,?,?).",
+      "api_mode": "POST api/internal/requirements/ingest-email strictly ingests new payloads. It strips job_id and client_jd_id before posting. Posting identical client_jd_id returns {'deduped': True} and does NOT update existing record attributes or expose a HTTP PUT/PATCH update route.",
+      "behavior_on_duplicate_post": "MetaForge API dedupes the request (ignores duplicate); SQLite updates in-place."
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "email_id": "req_003",
+  "requirements": [
+    {
+      "job_title": "SAP SD + S4HANA Implementation",
+      "skills": [
+        "SAP SD",
+        "S4HANA Implementation"
+      ],
+      "experience": "13+ years",
+      "location": "All locations (excluding Gurgaon)",
+      "budget": "45 LPA",
+      "notice_period": "Immediate",
+      "pii_guardrail": "Candidate table rows must be ignored"
+    },
+    {
+      "job_title": "SAP ABAP Consultant",
+      "skills": [
+        "SAP ABAP"
+      ],
+      "experience": null,
+      "location": null,
+      "budget": null,
+      "notice_period": null,
+      "pii_guardrail": "Do not map candidate names/emails/phones into requirement fields"
+    }
+  ]
+}

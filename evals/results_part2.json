@@ -1,0 +1,163 @@
+{
+  "summary": {
+    "overall_accuracy": 0.75,
+    "job_title_accuracy": 1.0,
+    "experience_accuracy": 1.0,
+    "skills_accuracy": 0.0,
+    "location_accuracy": 1.0,
+    "schema_compliance_rate": 1.0,
+    "hallucination_rate": 0.0,
+    "samples_evaluated": 3.0
+  },
+  "samples": [
+    {
+      "id": "ltts_2026_04_20_civil_structural_sr_engineer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Civil and Structural Sr Engineer",
+        "experience": "7-13 years",
+        "skills": "STAAD.Pro, RAM Connection, IDEA StatiCa, Foundation 3D, API, ASCE",
+        "location": "Chennai, Vadodara",
+        "budget": "1.6L per month",
+        "number_of_positions": 6,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Civil and Structural Sr Engineer",
+        "number_of_positions": 6,
+        "experience_level": "Senior Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Chennai",
+          "Vadodara"
+        ],
+        "yearly_budget_min": 1920000,
+        "yearly_budget_max": 1920000,
+        "mandatory_skills": [
+          "Petrochemical",
+          "Oil & Gas"
+        ],
+        "skills": [
+          "Civil Engineering",
+          "Structural Engineering"
+        ],
+        "experience": "7-13 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.9,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_piping_checker_vadodara_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Piping Checker",
+        "experience": "5-7 years",
+        "skills": "Piping Isometrics, Piping GA, Pipe support drawings, Navisworks, P&ID",
+        "location": "Vadodara",
+        "budget": "1.4L per month",
+        "number_of_positions": 1,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Piping Checker",
+        "number_of_positions": 1,
+        "experience_level": "Mid Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Vadodara"
+        ],
+        "yearly_budget_min": 1680000,
+        "yearly_budget_max": 1680000,
+        "mandatory_skills": [],
+        "skills": [
+          "Piping"
+        ],
+        "experience": "5-7 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_high_speed_design_engineer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "High Speed Design Engineer",
+        "experience": "5-10 years",
+        "skills": "OrCAD, Allegro, DDR5/6, GPU, Ethernet, camera interfaces",
+        "location": "Bangalore",
+        "budget": "150000 per month",
+        "number_of_positions": 10,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "High Speed Design Engineer",
+        "number_of_positions": 10,
+        "experience_level": "Senior Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 1800000,
+        "yearly_budget_max": 1800000,
+        "mandatory_skills": [
+          "Embedded"
+        ],
+        "skills": [
+          "High Speed Design",
+          "Embedded"
+        ],
+        "experience": "5-10 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "unknown",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    }
+  ]
+}

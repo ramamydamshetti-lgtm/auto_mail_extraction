@@ -1,0 +1,34 @@
+{
+  "email_id": "req_004",
+  "requirements": [
+    {
+      "job_title": "CyberSecurity Specialist",
+      "number_of_positions": 5,
+      "skills": [
+        "Microsoft Defender for Endpoint",
+        "Email security gateway",
+        "Proofpoint/EOP",
+        "SAML",
+        "OAuth",
+        "OpenID Connect",
+        "Microsoft Purview DLP",
+        "Cisco ISE",
+        "BeyondTrust PAM"
+      ],
+      "experience": "7+ years",
+      "work_mode": "On-site",
+      "location": "Hyderabad",
+      "budget": "22 LPA",
+      "employment_type": "Full-time",
+      "notice_period": "Immediate",
+      "contract_duration": "Till Jan 2028",
+      "evidence_quotes": {
+        "positions": "Need min 5 immediate joiner profiles",
+        "budget": "Max budget : 22LPA",
+        "title": "Job Title : CyberSecurity Specialist",
+        "experience": "Minimum 7 Years Exp MDE & Email Security",
+        "location": "Location : Hyderabad"
+      }
+    }
+  ]
+}

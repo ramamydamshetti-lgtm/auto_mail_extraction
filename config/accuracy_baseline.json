@@ -1,0 +1,31 @@
+{
+  "baseline_name": "Phase 4 Verified Historical Production Audit",
+  "baseline_established_at": "2026-10-06T16:25:00Z",
+  "sample_count": 30,
+  "metrics": {
+    "identity_accuracy": 1.0,
+    "job_title_accuracy": 1.0,
+    "location_recovery": 1.0,
+    "experience_recovery": 1.0,
+    "budget_recovery": 1.0,
+    "work_mode_recovery": 1.0,
+    "skills_recovery": 1.0,
+    "source_present_recovery": 1.0,
+    "hallucination_rate": 0.0,
+    "cross_role_contamination_rate": 0.0,
+    "overall_accuracy": 1.0
+  },
+  "thresholds": {
+    "min_overall_accuracy": 0.95,
+    "min_source_present_recovery": 0.95,
+    "min_identity_accuracy": 0.95,
+    "min_job_title_accuracy": 0.95,
+    "min_skills_recovery": 0.95,
+    "min_location_recovery": 0.90,
+    "min_experience_recovery": 0.90,
+    "min_budget_recovery": 0.90,
+    "min_work_mode_recovery": 0.90,
+    "max_hallucination_rate": 0.02,
+    "max_cross_role_contamination_rate": 0.0
+  }
+}

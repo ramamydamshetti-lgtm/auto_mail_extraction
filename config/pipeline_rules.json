@@ -1,0 +1,77 @@
+{
+  "allowlisted_senders": [
+    "rkarnam@metaforgeit.com"
+  ],
+  "allowed_domains": [
+    "ltts.com",
+    "itcinfotech.com",
+    "kpmg.com",
+    "iexcel.co.in",
+    "eximietas.com",
+    "idexcel.com"
+  ],
+  "ingest_start_datetime": "2026-09-01T00:00:00+05:30",
+  "fingerprint_window_days": null,
+  "domain_client_mapping": {
+    "ltts.com": "LTTS",
+    "itcinfotech.com": "ITC Infotech",
+    "kpmg.com": "KPMG",
+    "iexcel.co.in": "Accenture",
+    "eximietas.com": "PwC"
+  },
+  "ambiguous_domain_markers": {
+    "idexcel.com": [
+      {
+        "patterns": [
+          "\\b[dD][\\s\\.\\-–_]*Client\\b",
+          "\\b[dD]\\s*[-–]?\\s*Client\\b",
+          "\\b[dD]Client\\b"
+        ],
+        "client": "Deloitte",
+        "key": "deloitte"
+      },
+      {
+        "patterns": [
+          "\\b[pP][\\s\\.\\-–_]*Client\\b",
+          "\\b[pP]\\s*[-–]?\\s*Client\\b",
+          "\\b[pP]Client\\b"
+        ],
+        "client": "PwC",
+        "key": "pwc"
+      }
+    ]
+  },
+  "unresolved_idexcel_client": {
+    "display_name": "unresolved",
+    "key": "idexcel_unresolved"
+  },
+  "jd_structure_markers": [
+    "role title:",
+    "job title:",
+    "position:",
+    "job summary",
+    "key responsibilities",
+    "role purpose",
+    "must have",
+    "nice to have",
+    "primary skills",
+    "secondary skills",
+    "key skills",
+    "skills and experience",
+    "required skills",
+    "experience required",
+    "desired profile",
+    "job description"
+  ],
+  "similarity_weights": {
+    "title": 0.25,
+    "skills": 0.25,
+    "experience": 0.15,
+    "whole_text": 0.25,
+    "other_fields": 0.10
+  },
+  "similarity_thresholds": {
+    "duplicate": 0.85,
+    "possible_duplicate": 0.70
+  }
+}

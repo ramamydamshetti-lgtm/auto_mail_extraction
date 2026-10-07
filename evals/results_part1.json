@@ -1,0 +1,164 @@
+{
+  "summary": {
+    "overall_accuracy": 0.7183908045977011,
+    "job_title_accuracy": 0.8735632183908045,
+    "experience_accuracy": 0.6666666666666666,
+    "skills_accuracy": 0.3333333333333333,
+    "location_accuracy": 1.0,
+    "schema_compliance_rate": 1.0,
+    "hallucination_rate": 0.0,
+    "samples_evaluated": 3.0
+  },
+  "samples": [
+    {
+      "id": "ltts_2026_03_16_teamcenter_admin_developer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Teamcenter Admin",
+        "experience": "4-5 years",
+        "skills": "Teamcenter RAC, AWC, FMS, PLMXML, TCXML, CREO, BMIDE",
+        "location": "Chennai",
+        "budget": "1.20-1.35L per month",
+        "number_of_positions": 1,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Teamcenter Admin",
+        "number_of_positions": 1,
+        "experience_level": "Mid Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Chennai"
+        ],
+        "yearly_budget_min": 1440000,
+        "yearly_budget_max": 1620000,
+        "mandatory_skills": [
+          "Teamcenter Admin"
+        ],
+        "skills": [
+          "Teamcenter Admin"
+        ],
+        "experience": "4-5 years",
+        "notice_period": "unknown",
+        "priority": "HIGH",
+        "client_name": "unknown",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.9,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_02_03_ms_cornerstone_lms_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.6206896551724138,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Cornerstone LMS Administrator",
+        "experience": "",
+        "skills": "Cornerstone LMS, SCORM, AICC, ServiceNow, LMS reporting",
+        "location": "Bangalore, Mysore",
+        "budget": "100000-110000 per month",
+        "number_of_positions": 3,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Cornerstone LMS Consultant",
+        "number_of_positions": 3,
+        "experience_level": "Mid Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore",
+          "Mysore"
+        ],
+        "yearly_budget_min": 1200000,
+        "yearly_budget_max": 1320000,
+        "mandatory_skills": [
+          "Cornerstone",
+          "LMS"
+        ],
+        "skills": [
+          "Cornerstone",
+          "LMS"
+        ],
+        "experience": "unknown",
+        "notice_period": "unknown",
+        "priority": "MEDIUM",
+        "client_name": "unknown",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.7,
+          "budget": 0.9,
+          "skills": 1.0,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "kpmg_2026_03_30_c2h_data_scientist_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 1.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Lead AI Engineer",
+        "experience": "7-10 years",
+        "skills": "AI engineering",
+        "location": "Bangalore",
+        "budget": "2.75 lacs per month",
+        "number_of_positions": 10,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Lead AI Engineer",
+        "number_of_positions": 10,
+        "experience_level": "Senior Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 3300000,
+        "yearly_budget_max": 3300000,
+        "mandatory_skills": [
+          "AI Engineering"
+        ],
+        "skills": [
+          "AI Engineering"
+        ],
+        "experience": "7-10 years",
+        "notice_period": "unknown",
+        "priority": "unknown",
+        "client_name": "unknown",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    }
+  ]
+}

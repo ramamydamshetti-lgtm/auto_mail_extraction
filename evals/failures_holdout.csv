@@ -1,0 +1,4 @@
+id,schema_compliant,hallucination_count,low_score_fields,job_title_expected,job_title_actual,experience_expected,experience_actual,skills_expected,skills_actual,location_expected,location_actual
+kpmg_2026_03_26_multi_data_ai_roles_001,True,0,"job_title,experience,skills,location",GCP Data Engineer,,10+ years,,"GCP, Scala, Spark, Kafka, SQL",,Bangalore,
+kpmg_2026_04_17_sr_snowflake_de_001,True,0,"job_title,experience,skills,location",Senior Snowflake Data Engineer,,6-8 years,,"Snowflake, DBT, Databricks",,Bangalore,
+ltts_2026_04_16_tpc_mnt_embedded_audio_001,True,0,"job_title,experience,skills,location",WiFi RTOS Embedded Engineer,,5-12 years,,"WiFi, RTOS, IEEE 802.11, Zephyr, HAL, PDL",,Bangalore,

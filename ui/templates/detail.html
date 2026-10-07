@@ -1,0 +1,771 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.req_id if item else 'Requirement' }} — Requirement Details{% endblock %}
+
+{% block content %}
+{% set p = item.payload if item and item.payload else {} %}
+{% set req_id = item.req_id if item and item.req_id else p.get('req_id', '—') %}
+{% set client_name = p.get('requirement_from') or '—' %}
+{% set cjd = p.get('client_jd_id') or item.client_jd_id %}
+{% set display_email = p.get('client_lead_poc_email') or p.get('client_lead_poc') or p.get('from_email') or p.get('from') or '—' %}
+{% set raw_status = p.get('job_status') or p.get('requirement_status') or item.job_status or '—' %}
+{% set status_norm = raw_status|lower %}
+
+<!-- Top Nav Bar & Action Buttons -->
+<div class="detail-top-nav-bar">
+  <a href="/" class="btn-back-link">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+    Back
+  </a>
+  <div class="detail-action-buttons" style="display: flex; align-items: center; gap: 1rem;">
+    <button type="button" class="btn-secondary-action" onclick="openEmailModal()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+      Original email
+    </button>
+    <button type="button" class="btn-secondary-action" onclick="openEditModal()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      Edit Requirement
+    </button>
+  </div>
+</div>
+
+<!-- Main Requirement Title Block -->
+<div class="detail-title-block">
+  <div class="detail-title-row" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+    <span class="detail-req-tag">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+      {{ req_id }}{% if cjd and cjd != req_id %} (Client ID: {{ cjd }}){% endif %}
+    </span>
+
+    {% if item.legacy_unverified or p.get('legacy_unverified') %}
+      <span class="status-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">LEGACY UNVERIFIED</span>
+    {% endif %}
+
+    <!-- Status Badge -->
+    {% if status_norm in ['open', 'active'] %}
+      <span class="status-pill status-open">OPEN</span>
+    {% elif status_norm in ['hold', 'on hold', 'on-hold'] %}
+      <span class="status-pill status-hold">HOLD</span>
+    {% elif status_norm in ['reopen', 're-opened', 'reopened'] %}
+      <span class="status-pill status-reopen">REOPEN</span>
+    {% elif status_norm in ['closed', 'cancelled'] %}
+      <span class="status-pill status-closed">CLOSED</span>
+    {% elif raw_status != '—' and raw_status != 'Not specified' %}
+      <span class="status-pill status-hold">{{ raw_status|upper }}</span>
+    {% else %}
+      <span class="status-pill" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;">—</span>
+    {% endif %}
+
+    <!-- Priority Badge -->
+    {% set prio = (p.get('priority') or '')|upper %}
+    {% if prio in ['HIGH', 'P1'] %}
+      <span class="priority-badge priority-high">HIGH</span>
+    {% elif prio in ['MEDIUM', 'P2'] %}
+      <span class="priority-badge priority-medium">MEDIUM</span>
+    {% elif prio in ['LOW', 'P3'] %}
+      <span class="priority-badge priority-low">LOW</span>
+    {% else %}
+      <span class="priority-badge priority-neutral">—</span>
+    {% endif %}
+  </div>
+
+  <h1 class="detail-main-title">
+    {{ p.get('job_title') or '—' }}
+  </h1>
+
+  <div class="detail-sub-meta">
+    <span>Sender: <strong>{{ display_email }}</strong></span>
+    <span>•</span>
+    <span>Client: <strong>{{ client_name }}</strong></span>
+    <span>•</span>
+    <span>📅 SLA remaining: <strong>{{ p.get('sla') or '—' }}</strong></span>
+    <span>•</span>
+    <span class="detail-seen-badge">👁️ Seen <strong>{{ item.times_seen or 1 }}</strong> time{% if (item.times_seen or 1) != 1 %}s{% endif %}{% if item.last_seen %}, last seen <strong>{{ item.last_seen|format_received_time }}</strong>{% endif %}</span>
+  </div>
+</div>
+
+<!-- KPI Strip -->
+<div class="detail-kpi-strip">
+  <div class="detail-kpi-card">
+    <div class="dk-label">TOTAL CANDIDATES</div>
+    <div class="dk-value">0</div>
+  </div>
+
+  <div class="detail-kpi-card">
+    <div class="dk-label">SUBMITTED</div>
+    <div class="dk-value" style="color: #2563eb;">0</div>
+  </div>
+
+  <div class="detail-kpi-card">
+    <div class="dk-label">INTERVIEWING</div>
+    <div class="dk-value" style="color: #d97706;">0</div>
+  </div>
+
+  <div class="detail-kpi-card">
+    <div class="dk-label">SELECTED</div>
+    <div class="dk-value" style="color: #10b981;">0</div>
+  </div>
+
+  <div class="detail-kpi-card">
+    <div class="dk-label">REJECTED</div>
+    <div class="dk-value" style="color: #ef4444;">0</div>
+  </div>
+
+  <div class="detail-kpi-card">
+    <div class="dk-label">OFFER RELEASED</div>
+    <div class="dk-value" style="color: #8b5cf6;">0</div>
+  </div>
+
+  <div class="detail-kpi-card sla-card">
+    <div class="dk-label">SLA REMAINING</div>
+    <div class="dk-value" style="color: #2563eb; font-size: 1.1rem;">{{ p.get('sla') or '—' }}</div>
+  </div>
+</div>
+
+{% if p.get('sla') %}
+<div class="sla-left-pill-wrap">
+  <span class="sla-left-pill">SLA {{ p.get('sla') }}</span>
+</div>
+{% endif %}
+
+<!-- Navigation Tabs -->
+<div class="tabs-navigation-bar">
+  <button type="button" class="tab-btn active" onclick="switchTab('overview', this)">Overview</button>
+  <button type="button" class="tab-btn" onclick="switchTab('source', this)">Source & Verification</button>
+  <button type="button" class="tab-btn" onclick="switchTab('description', this)">Job Description</button>
+  <button type="button" class="tab-btn" onclick="switchTab('pipeline', this)">Pipeline</button>
+  <button type="button" class="tab-btn" onclick="switchTab('interviews', this)">Interviews</button>
+  <button type="button" class="tab-btn" onclick="switchTab('history', this)">History & Audit</button>
+</div>
+
+<!-- Tab Content Container -->
+<div id="tab-content-container">
+  <!-- Overview Tab Content -->
+  <div id="tab-overview" class="tab-pane">
+    <!-- Card 1: Requirement Overview -->
+    <div class="section-card">
+      <div class="section-card-title">Requirement Overview</div>
+      <div class="overview-grid">
+        <div class="overview-field">
+          <div class="field-label">REQUIREMENT ID</div>
+          <div class="field-value highlight-blue">{{ req_id }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">CLIENT REQ ID</div>
+          <div class="field-value">{{ cjd or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">JOB STATUS</div>
+          <div class="field-value">
+            {% if status_norm in ['open', 'active'] %}
+              <span class="status-pill status-open">OPEN</span>
+            {% elif status_norm in ['hold', 'on hold', 'on-hold'] %}
+              <span class="status-pill status-hold">HOLD</span>
+            {% elif status_norm in ['reopen', 're-opened', 'reopened'] %}
+              <span class="status-pill status-reopen">REOPEN</span>
+            {% elif status_norm in ['closed', 'cancelled'] %}
+              <span class="status-pill status-closed">CLOSED</span>
+            {% elif raw_status != '—' and raw_status != 'Not specified' %}
+              <span class="status-pill status-hold">{{ raw_status|upper }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">DEMAND RECEIVED DATE</div>
+          {% set r_date = p.get('receivedDateTime') or p.get('received_date_time') or p.get('email_received_iso') or item.arr_iso or item.created_at or p.get('demand_received_date') %}
+          <div class="field-value">{{ r_date|format_received_time if r_date else '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">INTERNAL POC (TO)</div>
+          <div class="field-value">{{ p.get('internal_poc') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">INTERNAL POC EMAIL</div>
+          <div class="field-value">{{ p.get('internal_poc_email') or p.get('to') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">REQUIREMENT FROM</div>
+          <div class="field-value">{{ client_name }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">CLIENT LEAD POC (FROM)</div>
+          <div class="field-value">{{ display_email }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">CLIENT POC (FROM/CC)</div>
+          <div class="field-value">{{ p.get('client_poc_emails') or p.get('client_poc_cc') or p.get('cc') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">JOB TITLE</div>
+          <div class="field-value">{{ p.get('job_title') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">CLOSED DATE</div>
+          <div class="field-value">{{ p.get('closed_date') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">TYPE OF DEMAND</div>
+          <div class="field-value">{{ (p.get('type_of_demand')|capitalize) if p.get('type_of_demand') else '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">PRIORITY</div>
+          <div class="field-value">{{ p.get('priority')|upper if p.get('priority') else '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">NUMBER OF POSITIONS</div>
+          <div class="field-value">{% set npos = p.get('number_of_positions') %}{% if npos is not none and npos != '' %}{{ npos }}{% else %}—{% endif %}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">EXPERIENCE LEVEL</div>
+          <div class="field-value">{{ p.get('experience_level') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">OVERALL EXPERIENCE</div>
+          <div class="field-value">{{ p.get('overall_experience') or p.get('experience') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">EMPLOYMENT TYPE</div>
+          <div class="field-value">{{ p.get('employment_type') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">WORK MODE</div>
+          <div class="field-value">{{ p.get('work_mode') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">LOCATION</div>
+          <div class="field-value">{{ p.get('location') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">BUDGET CURRENCY</div>
+          <div class="field-value">{{ p.get('budget_currency') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">BUDGET / RATE</div>
+          <div class="field-value">{{ p.get('budget_text') or p.get('budget') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">MONTHLY BUDGET</div>
+          <div class="field-value">{{ p.get('monthly_budget') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">YEARLY BUDGET</div>
+          <div class="field-value">{{ p.get('yearly_budget') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">NOTICE PERIOD</div>
+          <div class="field-value">{{ p.get('notice_period') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">OPEN SINCE</div>
+          {% set o_since = p.get('receivedDateTime') or p.get('email_received_iso') or item.arr_iso or item.created_at or p.get('demand_received_date') %}
+          <div class="field-value">{{ o_since|format_open_since if o_since else '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">SLA</div>
+          <div class="field-value">{{ p.get('sla') or '—' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Skills -->
+    <div class="section-card">
+      <div class="section-card-title">Skills & Requirements</div>
+      <div class="overview-grid" style="margin-bottom: 1.25rem;">
+        <div class="overview-field" style="grid-column: span 2;">
+          <div class="field-label">MANDATORY SKILLS</div>
+          {% set m_skills = p.get('mandatory_skills') %}
+          {% if m_skills and m_skills is iterable and m_skills is not string and m_skills|length > 0 %}
+            <div class="skill-chips-container">
+              {% for s in m_skills %}
+                <span class="skill-chip">{{ s }}</span>
+              {% endfor %}
+            </div>
+          {% elif m_skills and m_skills is string and m_skills.strip() %}
+            <div class="field-value">{{ m_skills }}</div>
+          {% else %}
+            <div class="field-value" style="color: #94a3b8;">—</div>
+          {% endif %}
+        </div>
+
+        <div class="overview-field" style="grid-column: span 2;">
+          <div class="field-label">ADDITIONAL SKILLS</div>
+          {% set a_skills = p.get('skills') %}
+          {% if a_skills and a_skills is iterable and a_skills is not string and a_skills|length > 0 %}
+            <div class="skill-chips-container">
+              {% for s in a_skills %}
+                <span class="skill-chip skill-chip-secondary">{{ s }}</span>
+              {% endfor %}
+            </div>
+          {% elif a_skills and a_skills is string and a_skills.strip() %}
+            <div class="field-value">{{ a_skills }}</div>
+          {% else %}
+            <div class="field-value" style="color: #94a3b8;">—</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="overview-grid">
+        <div class="overview-field">
+          <div class="field-label">EXPERIENCE</div>
+          <div class="field-value">{{ p.get('overall_experience') or p.get('experience') or '—' }}</div>
+        </div>
+        <div class="overview-field">
+          <div class="field-label">NOTICE PERIOD</div>
+          <div class="field-value">{{ p.get('notice_period') or '—' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Source & Verification Tab Content (U2) -->
+  <div id="tab-source" class="tab-pane" style="display: none;">
+    <div class="section-card">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <div class="section-card-title">Requirement Source & Two-Way Verification</div>
+          <div class="section-desc">Requirement block with verbatim evidence quotes and verification status (V1-V4, U2).</div>
+        </div>
+        <div>
+          {% set v_status = (item.verification_status or p.get('verification_status') or 'verified')|lower %}
+          {% if v_status == 'verified' %}
+            <span class="status-pill status-open" style="font-weight: 700; font-size: 0.85rem; padding: 6px 12px;">✓ VERIFIED</span>
+          {% elif v_status == 'failed' %}
+            <span class="status-pill status-hold" style="background: #fee2e2; color: #b91c1c; border-color: #fca5a5; font-weight: 700; font-size: 0.85rem; padding: 6px 12px;">✕ FAILED VERIFICATION</span>
+          {% else %}
+            <span class="status-pill status-hold" style="font-weight: 700; font-size: 0.85rem; padding: 6px 12px;">{{ v_status|upper }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Evidence Quotes Summary Table -->
+      <div style="margin-top: 1rem; margin-bottom: 1.5rem; overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: #f1f5f9; color: #334155; text-align: left;">
+              <th style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: 600;">FIELD</th>
+              <th style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: 600;">EXTRACTED VALUE</th>
+              <th style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: 600;">EVIDENCE QUOTE (IN BLOCK)</th>
+              <th style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: 600;">RECOVERED / VERIFIED BY</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set eq = p.get('field_evidence_quotes', {}) %}
+            {% set rb = p.get('recovered_by', {}) %}
+            {% for fname, fval in [
+              ('job_title', p.get('job_title')),
+              ('location', p.get('location')),
+              ('experience', p.get('experience_text') or p.get('overall_experience') or p.get('experience')),
+              ('budget', p.get('budget_text') or p.get('yearly_budget') or p.get('monthly_budget')),
+              ('mandatory_skills', p.get('mandatory_skills')),
+              ('skills', p.get('skills')),
+              ('notice_period', p.get('notice_period')),
+              ('work_mode', p.get('work_mode_text') or p.get('work_mode'))
+            ] %}
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: 600; color: #475569;">{{ fname }}</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0; color: #0f172a;">
+                {% if fval is iterable and fval is not string %}{{ fval|join(', ') }}{% elif fval %}{{ fval }}{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+              </td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">
+                {% if eq.get(fname) %}
+                  <mark style="background: #fef08a; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.82rem;">{{ eq.get(fname) }}</mark>
+                {% else %}
+                  <span style="color: #94a3b8;">—</span>
+                {% endif %}
+              </td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b;">
+                {{ rb.get(fname, 'two_way_agreement') }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Raw Requirement Block -->
+      <div style="font-weight: 600; font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">REQUIREMENT SOURCE BLOCK:</div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem; font-size: 0.88rem; line-height: 1.6; color: #1e293b; max-height: 450px; overflow-y: auto; white-space: pre-wrap; font-family: monospace;">
+{{ p.get('bodyText') or p.get('body') or p.get('email_body') or 'No requirement block text recorded.' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Description Tab Content -->
+  <div id="tab-description" class="tab-pane" style="display: none;">
+    <div class="section-card">
+      <div class="section-card-title">Extracted Job Description & Details</div>
+      <div class="section-desc">Raw job description and role details extracted from email body.</div>
+      <div style="margin-top: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem; font-size: 0.88rem; line-height: 1.6; color: #334155; white-space: pre-wrap; max-height: 500px; overflow-y: auto; font-family: monospace;">
+{{ p.get('job_description') or p.get('bodyText') or p.get('body') or '—' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- History & Audit Tab Content -->
+  <div id="tab-history" class="tab-pane" style="display: none;">
+    <!-- Field Change History (Rule 3 para 6) -->
+    <div class="section-card">
+      <div class="section-card-title" style="margin-bottom: 0.25rem;">Field Change History</div>
+      <div class="section-desc">Every field that changed, with the old value, new value, and when it changed.</div>
+
+      {% set fch = item.field_change_history if item and item.field_change_history else [] %}
+      {% if fch %}
+        <div style="margin-top: 1rem; overflow-x: auto;">
+          {% for event in fch|reverse %}
+          <div style="border-left: 3px solid #6366f1; padding: 0.75rem 1rem; margin-bottom: 1rem; background: #f8f9ff; border-radius: 0 6px 6px 0;">
+            <div style="font-size: 0.8rem; color: #6366f1; font-weight: 600; margin-bottom: 0.5rem;">
+              {{ event.changed_at[:19].replace('T', ' ') if event.changed_at else 'Unknown time' }}
+              {% if event.source_email_id %}
+                <span style="color: #9ca3af; font-weight: 400; margin-left: 0.75rem;">email: {{ event.source_email_id[:20] }}...</span>
+              {% endif %}
+            </div>
+            {% if event.changes %}
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                <thead>
+                  <tr style="background: #e0e7ff; color: #4338ca;">
+                    <th style="padding: 4px 8px; text-align: left; font-weight: 600;">FIELD</th>
+                    <th style="padding: 4px 8px; text-align: left; font-weight: 600;">FROM</th>
+                    <th style="padding: 4px 8px; text-align: left; font-weight: 600;">TO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for field, chg in event.changes.items() %}
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 5px 8px; font-weight: 600; color: #374151;">{{ field }}</td>
+                    <td style="padding: 5px 8px; color: #dc2626;">
+                      <span style="background: #fef2f2; padding: 2px 6px; border-radius: 3px;">
+                        {{ chg.old if chg.old is not none else '—' }}
+                      </span>
+                    </td>
+                    <td style="padding: 5px 8px; color: #16a34a;">
+                      <span style="background: #f0fdf4; padding: 2px 6px; border-radius: 3px;">
+                        {{ chg.new if chg.new is not none else '—' }}
+                      </span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <div style="color: #6b7280; font-size: 0.8rem;">No field details recorded for this event.</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-history-box">
+          <div class="empty-title">No field changes recorded yet</div>
+          <div class="empty-subtext">When this requirement is updated by a follow-up email, each changed field will appear here with its old and new values.</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Status History Card -->
+    <div class="section-card">
+      <div class="section-card-title">Status Transition History</div>
+      {% set sh = item.status_history if item and item.status_history else [] %}
+      {% if sh %}
+        <div style="margin-top: 1rem;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <thead>
+              <tr style="background: #f1f5f9; color: #475569;">
+                <th style="padding: 6px 10px; text-align: left;">From Status</th>
+                <th style="padding: 6px 10px; text-align: left;">To Status</th>
+                <th style="padding: 6px 10px; text-align: left;">Changed At</th>
+                <th style="padding: 6px 10px; text-align: left;">Changed By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in sh %}
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 6px 10px;">{{ s.from_status }}</td>
+                <td style="padding: 6px 10px; font-weight: 600;">{{ s.to_status }}</td>
+                <td style="padding: 6px 10px; color: #64748b;">{{ s.changed_at }}</td>
+                <td style="padding: 6px 10px; color: #64748b;">{{ s.changed_by }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-history-box">
+          <div class="empty-title">No status history records</div>
+          <div class="empty-subtext">Status transitions made through the UI or updates will appear here.</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pipeline Tab Content -->
+  <div id="tab-pipeline" class="tab-pane" style="display: none;">
+    <div class="section-card">
+      <div class="section-card-title">Candidate Pipeline</div>
+      <div class="empty-history-box">
+        <div class="empty-title">No candidates in pipeline</div>
+        <div class="empty-subtext">Add candidate profiles to see their progress here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interviews Tab Content -->
+  <div id="tab-interviews" class="tab-pane" style="display: none;">
+    <div class="section-card">
+      <div class="section-card-title">Interview Schedules</div>
+      <div class="empty-history-box">
+        <div class="empty-title">No interviews scheduled</div>
+        <div class="empty-subtext">Scheduled candidate interviews will be listed here.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- EDIT / REVIEW REQUIREMENT MODAL (Auto-fill Form)                          -->
+<!-- Pre-populates all ~24 canonical fields identically to the read-only view  -->
+<!-- ========================================================================= -->
+<div id="editRequirementModal" class="modal-overlay" style="display: none;">
+  <div class="modal-container">
+    <div class="modal-header">
+      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: #0f172a;">Edit & Review Requirement (Auto-Fill Form)</h3>
+      <button type="button" class="btn-close-modal" onclick="closeEditModal()">✕</button>
+    </div>
+    <form id="editRequirementForm" onsubmit="saveRequirementEdit(event)">
+      <div class="modal-form-grid">
+        <div class="form-group">
+          <label>Requirement ID</label>
+          <input type="text" id="form_req_id" value="{{ req_id }}" readonly style="background: #f1f5f9; cursor: not-allowed;">
+        </div>
+
+        <div class="form-group">
+          <label>Client Req ID</label>
+          <input type="text" id="form_client_jd_id" value="{{ cjd or '' }}" placeholder="Client JD ID">
+        </div>
+
+        <div class="form-group full-width">
+          <label>Job Title</label>
+          <input type="text" id="form_job_title" value="{{ p.get('job_title') or '' }}" placeholder="Job title / role">
+        </div>
+
+        <div class="form-group">
+          <label>Client Name</label>
+          <input type="text" id="form_requirement_from" value="{{ p.get('requirement_from') or '' }}" placeholder="Client organization">
+        </div>
+
+        <div class="form-group">
+          <label>Job Status</label>
+          <select id="form_job_status">
+            <option value="open" {% if status_norm in ['open', 'active'] %}selected{% endif %}>Open</option>
+            <option value="hold" {% if status_norm in ['hold', 'on hold', 'on-hold'] %}selected{% endif %}>Hold</option>
+            <option value="reopen" {% if status_norm in ['reopen', 're-opened', 'reopened'] %}selected{% endif %}>Reopen</option>
+            <option value="closed" {% if status_norm in ['closed', 'cancelled'] %}selected{% endif %}>Closed</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="form_priority">
+            <option value="" {% if not p.get('priority') %}selected{% endif %}>Not specified</option>
+            <option value="HIGH" {% if prio == 'HIGH' %}selected{% endif %}>HIGH</option>
+            <option value="MEDIUM" {% if prio == 'MEDIUM' %}selected{% endif %}>MEDIUM</option>
+            <option value="LOW" {% if prio == 'LOW' %}selected{% endif %}>LOW</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Number of Positions</label>
+          <input type="number" id="form_number_of_positions" value="{{ p.get('number_of_positions') or '' }}" placeholder="Positions count">
+        </div>
+
+        <div class="form-group">
+          <label>Experience Level</label>
+          <input type="text" id="form_experience_level" value="{{ p.get('experience_level') or '' }}" placeholder="e.g. Senior Level, Mid Level">
+        </div>
+
+        <div class="form-group">
+          <label>Overall Experience</label>
+          <input type="text" id="form_overall_experience" value="{{ p.get('overall_experience') or p.get('experience') or '' }}" placeholder="e.g. 5+ years">
+        </div>
+
+        <div class="form-group">
+          <label>Employment Type</label>
+          <input type="text" id="form_employment_type" value="{{ p.get('employment_type') or '' }}" placeholder="e.g. Full-time, Contract">
+        </div>
+
+        <div class="form-group">
+          <label>Work Mode</label>
+          <input type="text" id="form_work_mode" value="{{ p.get('work_mode') or '' }}" placeholder="e.g. Remote, Hybrid, On-site">
+        </div>
+
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" id="form_location" value="{{ p.get('location') or '' }}" placeholder="Job location / city">
+        </div>
+
+        <div class="form-group">
+          <label>Budget Currency</label>
+          <input type="text" id="form_budget_currency" value="{{ p.get('budget_currency') or '' }}" placeholder="e.g. INR, USD, EUR">
+        </div>
+
+        <div class="form-group">
+          <label>Monthly Budget</label>
+          <input type="text" id="form_monthly_budget" value="{{ p.get('monthly_budget') or '' }}" placeholder="Monthly compensation">
+        </div>
+
+        <div class="form-group">
+          <label>Yearly Budget</label>
+          <input type="text" id="form_yearly_budget" value="{{ p.get('yearly_budget') or '' }}" placeholder="Annual CTC / Budget">
+        </div>
+
+        <div class="form-group">
+          <label>Notice Period</label>
+          <input type="text" id="form_notice_period" value="{{ p.get('notice_period') or '' }}" placeholder="e.g. Immediate, 30 days">
+        </div>
+
+        <div class="form-group">
+          <label>Demand Received Date</label>
+          <input type="text" id="form_demand_received_date" value="{{ p.get('demand_received_date') or '' }}" placeholder="YYYY-MM-DD">
+        </div>
+
+        <div class="form-group">
+          <label>SLA</label>
+          <input type="text" id="form_sla" value="{{ p.get('sla') or '' }}" placeholder="SLA details">
+        </div>
+
+        <div class="form-group">
+          <label>Client Lead POC</label>
+          <input type="text" id="form_client_lead_poc" value="{{ p.get('client_lead_poc_email') or p.get('client_lead_poc') or '' }}" placeholder="Client lead email">
+        </div>
+
+        <div class="form-group">
+          <label>Internal POC</label>
+          <input type="text" id="form_internal_poc" value="{{ p.get('internal_poc') or '' }}" placeholder="Internal recruiter">
+        </div>
+
+        <div class="form-group full-width">
+          <label>Mandatory Skills (comma-separated)</label>
+          {% set m_skills_str = p.get('mandatory_skills')|join(', ') if (p.get('mandatory_skills') and p.get('mandatory_skills') is iterable and p.get('mandatory_skills') is not string) else (p.get('mandatory_skills') or '') %}
+          <input type="text" id="form_mandatory_skills" value="{{ m_skills_str }}" placeholder="e.g. Python, Django, PostgreSQL">
+        </div>
+
+        <div class="form-group full-width">
+          <label>Additional Skills (comma-separated)</label>
+          {% set a_skills_str = p.get('skills')|join(', ') if (p.get('skills') and p.get('skills') is iterable and p.get('skills') is not string) else (p.get('skills') or '') %}
+          <input type="text" id="form_skills" value="{{ a_skills_str }}" placeholder="e.g. Docker, AWS, React">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+        <button type="submit" class="btn-save">Update Status & Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- ORIGINAL EMAIL MODAL                                                      -->
+<!-- ========================================================================= -->
+<div id="originalEmailModal" class="modal-overlay" style="display: none;">
+  <div class="modal-container modal-lg">
+    <div class="modal-header">
+      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: #0f172a;">Original Email</h3>
+      <button type="button" class="btn-close-modal" onclick="closeEmailModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; font-size: 0.85rem;">
+        <div><strong>Subject:</strong> {{ p.get('subject') or p.get('email_subject') or '—' }}</div>
+        <div style="margin-top: 4px;"><strong>From:</strong> {{ p.get('from') or p.get('from_email') or p.get('client_lead_poc') or '—' }}</div>
+        <div style="margin-top: 4px;"><strong>To:</strong> {{ p.get('to') or p.get('to_emails') or '—' }}</div>
+        {% if p.get('cc') or p.get('cc_emails') %}
+        <div style="margin-top: 4px;"><strong>Cc:</strong> {{ p.get('cc') or p.get('cc_emails') }}</div>
+        {% endif %}
+        <div style="margin-top: 4px;"><strong>Received:</strong> {{ (p.get('receivedDateTime') or p.get('demand_received_date'))|format_received_time if (p.get('receivedDateTime') or p.get('demand_received_date')) else '—' }}</div>
+      </div>
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem; font-size: 0.88rem; line-height: 1.6; color: #1e293b; max-height: 450px; overflow-y: auto; white-space: pre-wrap; font-family: monospace;">
+{{ p.get('bodyText') or p.get('body') or p.get('email_body') or 'No plain text email body available.' }}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeEmailModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tabName, btn) {
+  const panes = document.querySelectorAll('.tab-pane');
+  panes.forEach(p => p.style.display = 'none');
+  const target = document.getElementById('tab-' + tabName);
+  if (target) target.style.display = 'block';
+
+  const btns = document.querySelectorAll('.tab-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function openEditModal() {
+  document.getElementById('editRequirementModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editRequirementModal').style.display = 'none';
+}
+
+function openEmailModal() {
+  document.getElementById('originalEmailModal').style.display = 'flex';
+}
+
+function closeEmailModal() {
+  document.getElementById('originalEmailModal').style.display = 'none';
+}
+
+async function saveRequirementEdit(e) {
+  e.preventDefault();
+  const reqId = document.getElementById('form_req_id').value;
+  const newStatus = document.getElementById('form_job_status').value;
+  
+  try {
+    const res = await fetch('/api/requirement/' + encodeURIComponent(reqId) + '/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus, changed_by: 'USER' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeEditModal();
+      window.location.reload();
+    } else {
+      alert('Error updating requirement status: ' + (data.error || 'Failed'));
+    }
+  } catch (err) {
+    alert('Failed to save requirement: ' + err);
+  }
+}
+</script>
+{% endblock %}

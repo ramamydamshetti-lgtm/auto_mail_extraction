@@ -1,0 +1,620 @@
+{
+  "summary": {
+    "overall_accuracy": 0.6079730236282814,
+    "job_title_accuracy": 0.7882232633442947,
+    "experience_accuracy": 0.6704545454545454,
+    "skills_accuracy": 0.11904761904761905,
+    "location_accuracy": 0.8541666666666666,
+    "schema_compliance_rate": 1.0,
+    "hallucination_rate": 0.3333333333333333,
+    "samples_evaluated": 12.0
+  },
+  "samples": [
+    {
+      "id": "ltts_2026_03_16_teamcenter_admin_developer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Teamcenter Admin",
+        "experience": "4-5 years",
+        "skills": "Teamcenter RAC, AWC, FMS, PLMXML, TCXML, CREO, BMIDE",
+        "location": "Chennai",
+        "budget": "1.20-1.35L per month",
+        "number_of_positions": 1,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Teamcenter Admin",
+        "number_of_positions": 1,
+        "experience_level": "Mid Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Chennai"
+        ],
+        "yearly_budget_min": 1440000,
+        "yearly_budget_max": 1620000,
+        "mandatory_skills": [
+          "Teamcenter Admin"
+        ],
+        "skills": [
+          "Teamcenter Admin"
+        ],
+        "experience": "4-5 years",
+        "notice_period": "unknown",
+        "priority": "HIGH",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.95,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_02_03_ms_cornerstone_lms_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.48275862068965514,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Cornerstone LMS Administrator",
+        "experience": "",
+        "skills": "Cornerstone LMS, SCORM, AICC, ServiceNow, LMS reporting",
+        "location": "Bangalore, Mysore",
+        "budget": "100000-110000 per month",
+        "number_of_positions": 3,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Cornerstone Consultant",
+        "number_of_positions": 3,
+        "experience_level": "Mid Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore",
+          "Mysore"
+        ],
+        "yearly_budget_min": 1200000,
+        "yearly_budget_max": 1320000,
+        "mandatory_skills": [
+          "Cornerstone",
+          "LMS"
+        ],
+        "skills": [
+          "Cornerstone",
+          "LMS"
+        ],
+        "experience": "Not specified",
+        "notice_period": "unknown",
+        "priority": "unknown",
+        "client_name": "unknown",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.7,
+          "budget": 0.9,
+          "skills": 1.0,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "kpmg_2026_03_30_c2h_data_scientist_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 1.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Lead AI Engineer",
+        "experience": "7-10 years",
+        "skills": "AI engineering",
+        "location": "Bangalore",
+        "budget": "2.75 lacs per month",
+        "number_of_positions": 10,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Lead AI Engineer",
+        "number_of_positions": 10,
+        "experience_level": "Senior Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 3300000,
+        "yearly_budget_max": 3300000,
+        "mandatory_skills": [
+          "AI Engineering"
+        ],
+        "skills": [
+          "AI Engineering"
+        ],
+        "experience": "7-10 years",
+        "notice_period": "unknown",
+        "priority": "unknown",
+        "client_name": "unknown",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_20_civil_structural_sr_engineer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Civil and Structural Sr Engineer",
+        "experience": "7-13 years",
+        "skills": "STAAD.Pro, RAM Connection, IDEA StatiCa, Foundation 3D, API, ASCE",
+        "location": "Chennai, Vadodara",
+        "budget": "1.6L per month",
+        "number_of_positions": 6,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Civil and Structural Sr Engineer",
+        "number_of_positions": 6,
+        "experience_level": "Senior Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Chennai",
+          "Vadodara"
+        ],
+        "yearly_budget_min": 1920000,
+        "yearly_budget_max": 1920000,
+        "mandatory_skills": [
+          "Civil Engineering",
+          "Structural Engineering"
+        ],
+        "skills": [
+          "Petrochemical",
+          "Oil & Gas"
+        ],
+        "experience": "7-13 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.9,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_piping_checker_vadodara_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Piping Checker",
+        "experience": "5-7 years",
+        "skills": "Piping Isometrics, Piping GA, Pipe support drawings, Navisworks, P&ID",
+        "location": "Vadodara",
+        "budget": "1.4L per month",
+        "number_of_positions": 1,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Piping Checker",
+        "number_of_positions": 1,
+        "experience_level": "Mid Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Vadodara"
+        ],
+        "yearly_budget_min": 1680000,
+        "yearly_budget_max": 1680000,
+        "mandatory_skills": [],
+        "skills": [
+          "Piping"
+        ],
+        "experience": "5-7 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_high_speed_design_engineer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "High Speed Design Engineer",
+        "experience": "5-10 years",
+        "skills": "OrCAD, Allegro, DDR5/6, GPU, Ethernet, camera interfaces",
+        "location": "Bangalore",
+        "budget": "150000 per month",
+        "number_of_positions": 10,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "High Speed Design Engineer",
+        "number_of_positions": 10,
+        "experience_level": "Senior Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 1800000,
+        "yearly_budget_max": 1800000,
+        "mandatory_skills": [
+          "Embedded"
+        ],
+        "skills": [
+          "High Speed Design",
+          "Embedded"
+        ],
+        "experience": "5-10 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "unknown",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_automotive_hardware_engineer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Automotive Hardware Engineer",
+        "experience": "5-7 years",
+        "skills": "PSPICE, LTSpice, MATHCAD, OrCAD, Altium, DxDesigner",
+        "location": "Bangalore",
+        "budget": "130000 per month",
+        "number_of_positions": 3,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Automotive Hardware Engineer",
+        "number_of_positions": 3,
+        "experience_level": "Mid Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 1560000,
+        "yearly_budget_max": 1560000,
+        "mandatory_skills": [],
+        "skills": [
+          "Automotive Hardware"
+        ],
+        "experience": "5-7 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.9,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_stress_analysis_bangalore_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.42857142857142855,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Stress Analysis Engineer",
+        "experience": "6+ years",
+        "skills": "Patran, Nastran, FEA, fatigue analysis, composite structures",
+        "location": "Bangalore",
+        "budget": "90000 per month",
+        "number_of_positions": 4,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Stress Analysis Engineer",
+        "number_of_positions": 4,
+        "experience_level": "Senior Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 1080000,
+        "yearly_budget_max": 1080000,
+        "mandatory_skills": [
+          "Patran",
+          "Nastran",
+          "load path",
+          "FEA",
+          "FBD"
+        ],
+        "skills": [
+          "Patran",
+          "Nastran",
+          "load path",
+          "FEA",
+          "FBD"
+        ],
+        "experience": "6+ years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 0.9,
+          "budget": 0.85,
+          "skills": 1.0,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_data_analyst_vadodara_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.29268292682926833,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Data Analyst - Mechanical/Instrumentation",
+        "experience": "3-6 years",
+        "skills": "P&ID, datasheet, SLD, DCS, PLC, Excel, Access",
+        "location": "Vadodara",
+        "budget": "50000-60000 per month",
+        "number_of_positions": 6,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Data Analyst",
+        "number_of_positions": 6,
+        "experience_level": "Mid Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Vadodara"
+        ],
+        "yearly_budget_min": 600000,
+        "yearly_budget_max": 720000,
+        "mandatory_skills": [
+          "Mechanical maintenance",
+          "Instrumentation maintenance"
+        ],
+        "skills": [
+          "Data Analysis"
+        ],
+        "experience": "3-6 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.9,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "kpmg_2026_04_16_sa_technical_pm_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.9459459459459459,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Technical Project Manager - Data & AI",
+        "experience": "7+ years",
+        "skills": "PMP, Agile Scrum, professional services delivery, AI program governance",
+        "location": "Bangalore",
+        "budget": "AM and below : 20",
+        "number_of_positions": 10,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Technical Project Manager Data & AI",
+        "number_of_positions": 10,
+        "experience_level": "Mid Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": null,
+        "yearly_budget_max": null,
+        "mandatory_skills": [
+          "PMP",
+          "Technical Project Communication"
+        ],
+        "skills": [
+          "Data",
+          "AI"
+        ],
+        "experience": "unknown",
+        "notice_period": "unknown",
+        "priority": "HIGH",
+        "client_name": "unknown",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.0,
+          "skills": 0.9,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "kpmg_2026_03_31_fte_cloud_security_multi_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.23729166666666665,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 0.25
+      },
+      "hallucination_count": 4,
+      "expected_requirement": {
+        "job_title": "Junior Security Architect",
+        "experience": "9-12+ years",
+        "skills": "NIST, ISO27001, GDPR, STRIDE, DevSecOps, Kubernetes security",
+        "location": "Bangalore",
+        "budget": "14-16 Lakh",
+        "number_of_positions": 5,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Security Architect",
+        "number_of_positions": 1,
+        "experience_level": "Senior Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore",
+          "Hyderabad"
+        ],
+        "yearly_budget_min": null,
+        "yearly_budget_max": null,
+        "mandatory_skills": [
+          "Cloud Security",
+          "Security Architecture"
+        ],
+        "skills": [
+          "Cloud Security",
+          "Security Architecture"
+        ],
+        "experience": "unknown",
+        "notice_period": "unknown",
+        "priority": "HIGH",
+        "client_name": "unknown",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.95,
+          "budget": 0.0,
+          "skills": 0.8,
+          "location": 0.9
+        }
+      }
+    },
+    {
+      "id": "kpmg_2026_04_16_jr_security_architect_recoverability_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.5,
+        "experience": 0.04545454545454547,
+        "skills": 0.0,
+        "location": 0.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Junior Security Architect",
+        "experience": "9-12+ years",
+        "skills": "Cloud security architecture, NIST, ISO27001, STRIDE, DevSecOps",
+        "location": "Bangalore",
+        "budget": "14-16 Lak",
+        "number_of_positions": 5,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {
+        "job_title": "Junior Security Architect",
+        "number_of_positions": 1,
+        "experience_level": "Entry Level",
+        "employment_type": "Full-time",
+        "work_mode": "Remote",
+        "location": [],
+        "yearly_budget_min": null,
+        "yearly_budget_max": null,
+        "mandatory_skills": [
+          "Security Architecture",
+          "Risk Management",
+          "Disaster Recovery",
+          "DevOps"
+        ],
+        "skills": [
+          "Cloud Recoverability Assurance"
+        ],
+        "experience": "Junior",
+        "notice_period": "",
+        "priority": "HIGH",
+        "client_name": "unknown",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.95,
+          "budget": 0.0,
+          "skills": 0.8,
+          "location": 0.0
+        }
+      }
+    }
+  ]
+}

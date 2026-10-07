@@ -1,0 +1,102 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: email-pipeline-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-pipeline-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command: ["python", "main.py", "scheduler"]
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+
+  worker-high-priority:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-pipeline-worker-high-priority
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command:
+      [
+        "celery",
+        "-A",
+        "tasks",
+        "worker",
+        "--loglevel=info",
+        "--queues=high_priority",
+        "--hostname=high_priority@%h"
+      ]
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+
+  worker-heavy-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-pipeline-worker-heavy-ai
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command:
+      [
+        "celery",
+        "-A",
+        "tasks",
+        "worker",
+        "--loglevel=info",
+        "--queues=heavy_ai",
+        "--hostname=heavy_ai@%h"
+      ]
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+
+  worker-io-bound:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-pipeline-worker-io-bound
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command:
+      [
+        "celery",
+        "-A",
+        "tasks",
+        "worker",
+        "--loglevel=info",
+        "--queues=io_bound",
+        "--hostname=io_bound@%h"
+      ]
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis

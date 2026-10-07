@@ -1,0 +1,81 @@
+{
+  "email_id": "req_006",
+  "requirements": [
+    {
+      "client_meta": {
+        "client_name": "Accenture",
+        "source_sender": "srikanth.n.m@accenture.com",
+        "thread_type": "doability_assessment_with_jd_attachment",
+        "attachment_count_note": "Recruiter reported 4 attachments; this mapping is based on 1 provided attachment content"
+      },
+      "extracted_data": {
+        "job_title": {
+          "value": "Tester - Contact Center IVR Testing",
+          "confidence": 0.98,
+          "evidence_quote": "Job Title: Tester � Contact Center IVR Testing",
+          "method": "regex_anchor"
+        },
+        "skills": {
+          "value": [
+            "Contact Center testing",
+            "IVR testing",
+            "Java application testing",
+            "Cyara",
+            "JMeter",
+            "Functional testing",
+            "Regression testing",
+            "Performance testing",
+            "Manual testing",
+            "SIP",
+            "Call routing",
+            "CTI"
+          ],
+          "confidence": 0.96,
+          "evidence_quote": "Domain: Contact Center / IVR / Java Applications ... using JMeter, Cyara ... SIP, call routing, CTI",
+          "method": "ai_semantic"
+        },
+        "experience": {
+          "value": "5-8 years",
+          "confidence": 1.0,
+          "evidence_quote": "Experience: 5�8 Years",
+          "method": "regex_anchor"
+        },
+        "location": {
+          "value": null,
+          "confidence": 0.0,
+          "evidence_quote": "",
+          "method": "not_found"
+        },
+        "budget": {
+          "value": null,
+          "confidence": 0.0,
+          "evidence_quote": "",
+          "method": "not_found"
+        },
+        "notice_period": {
+          "value": null,
+          "confidence": 0.0,
+          "evidence_quote": "",
+          "method": "not_found"
+        },
+        "number_of_positions": {
+          "value": null,
+          "confidence": 0.0,
+          "evidence_quote": "We currently have 20+ demand requirements",
+          "method": "not_found",
+          "note": "20+ refers to overall demand volume, not this role's openings"
+        },
+        "engagement_type": {
+          "value": "DoAbility Assessment",
+          "confidence": 0.85,
+          "evidence_quote": "Request for Doability Assessment",
+          "method": "ai_semantic"
+        }
+      },
+      "field_quality_gating": {
+        "overall_status": "yellow",
+        "reasoning": "Technical fields are strong, but commercial fields (budget/location/notice/positions) are absent in the provided single attachment and body."
+      }
+    }
+  ]
+}

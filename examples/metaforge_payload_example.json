@@ -1,0 +1,30 @@
+{
+  "job_id": "REQ-2026-04-10-001",
+  "demand_received_date": "2026-04-10",
+  "internal_poc": "recruitment.application@metaforgeit.com",
+  "requirement_from": "KPMG",
+  "client_jd_id": "KPMG-2026-04-10-001",
+  "client_lead_poc": "Jane Vendor <jane.vendor@kpmg.com>",
+  "client_poc": "cc.person@partner.com",
+  "job_title": "Senior Python Developer",
+  "job_status": "Open",
+  "type_of_demand": "Multiple",
+  "priority": "HIGH",
+  "number_of_positions": 3,
+  "experience_level": "senior",
+  "employment_type": "full-time",
+  "budget": "18-22 LPA",
+  "budget_inr_lpa_min": 18.0,
+  "budget_inr_lpa_max": 22.0,
+  "work_mode": "hybrid",
+  "location": "Bangalore",
+  "overall_experience": "5-8 years",
+  "notice_period": "30 days",
+  "mandatory_skills": "Python, FastAPI, PostgreSQL",
+  "skills": "Docker, Azure, REST APIs",
+  "_provenance": {
+    "graph_message_id": "<graph-message-id>",
+    "internet_message_id": "<internet-message-id>",
+    "parser_confidence": 0.85
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "email_id": "req_005",
+  "requirements": [
+    {
+      "job_title": "Salesforce Identity Provider (IdP) Specialist/Developer",
+      "engagement_type": "3PT",
+      "contract_duration": "2months",
+      "budget": "1.5 LPM",
+      "budget_period": "monthly",
+      "experience": "6-8 years",
+      "notice_period": "Immediate",
+      "work_mode": "Remote",
+      "location": "Remote",
+      "skills": [
+        "Salesforce Identity Provider",
+        "SAML 2.0",
+        "OAuth 2.0",
+        "OpenID Connect (OIDC)",
+        "SSO",
+        "JIT provisioning",
+        "MFA",
+        "JWT",
+        "Okta",
+        "Azure Active Directory",
+        "Postman"
+      ],
+      "evidence_quotes": {
+        "commercial": "3PT (2months), Budget � 1.5 LPM, Experience � 6-8years, Notice period � Immediate, Remote",
+        "technical": "Required Skills ... Tools & Platforms ..."
+      }
+    }
+  ]
+}

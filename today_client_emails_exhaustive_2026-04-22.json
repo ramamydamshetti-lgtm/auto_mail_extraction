@@ -1,0 +1,332 @@
+{
+  "date": "2026-04-22",
+  "total_client_emails": 9,
+  "unique_demands": 6,
+  "dropped_duplicate_emails": 3,
+  "emails": [
+    {
+      "seq": 1,
+      "received_date_time": "2026-04-22T03:19:11Z",
+      "source_vendor_key": "ltts",
+      "from_name": "Trayeetanu Ganguly",
+      "from_email": "Trayeetanu.Ganguly@Ltts.com",
+      "subject": "TPC Requirement  \u2013 Medical Device Testing \u2013 Mysore",
+      "graph_id": "AAMkADE3NDllMmZlLTU3NmUtNGI2MS1hZjA4LTEwNzAzZWZjYzUxOABGAAAAAABG8jimhHIeTrzzeDCLnQR9BwAIHnK_cnn0TIdFuplFGEzAAAAAAAEMAAAIHnK_cnn0TIdFuplFGEzAAAATEljWAAA=",
+      "job_title": "Medical Device Testing",
+      "skills": [
+        "Java",
+        "API automation testing",
+        "test case design",
+        "test execution",
+        "STLC process"
+      ],
+      "experience": "5-7 years",
+      "location": [
+        "Bangalore"
+      ],
+      "notice_period": "Immediate",
+      "parsed_requirements_count": 1,
+      "parsed_overall_confidence": 0.95,
+      "parsed_processing_note": "",
+      "fallback_reason": "",
+      "raw_requirement_json": {
+        "source": {
+          "vendor_key": "ltts",
+          "vendor_display": "LTTS",
+          "sender_domain": "ltts.com",
+          "sender_email": "Trayeetanu.Ganguly@Ltts.com",
+          "sender_name": "Trayeetanu Ganguly"
+        },
+        "subject": "TPC Requirement  \u2013 Medical Device Testing \u2013 Mysore",
+        "summary": "Dear Partner,\nKindly share quality profiles with\n@Praveen Kumar S A\nwith priority.\nNeed only immediate Joiners\nRequirement\u00a0 \u2013 Medical Device Testing \u2013 Mysore\nOverall exp \u2013 5 - 7 years\nOpen Positions-\nAny domain specification \u2013 Embedded\nQualification Criteria- B.E\nMandatory Skills \u2013\nBill Rate per month for TPC(in terms of INR) -\u00a0120000/Month\nWork Location - Bangalore\nJob Description -\nStrong hands-on experience in\nJava and API automation testing\nMedical / Embedded device testing\nexperience is mandatory\nGood expertise in\ntest case design and test execution\nFamiliar with\nSTLC process\n.",
+        "locations": [
+          "Bangalore"
+        ],
+        "key_points": [],
+        "experience_mentions": [
+          "5 - 7 years"
+        ],
+        "roles_table": [],
+        "candidate_submissions": [],
+        "parse": {
+          "roles_table_rows": 0,
+          "candidate_submission_rows": 0,
+          "key_points_count": 0
+        }
+      },
+      "duplicate_group_size": 1,
+      "merged_from_seq": [
+        1
+      ]
+    },
+    {
+      "seq": 2,
+      "received_date_time": "2026-04-22T07:15:09Z",
+      "source_vendor_key": "itc",
+      "from_name": "Manashi Adhikari",
+      "from_email": "Manashi.Adhikari@itcinfotech.com",
+      "subject": "Recall: SAP ABAP Drive _ 27th & 28th  April 2026 (Face to Face) - We need profiles Today",
+      "graph_id": "AAMkADE3NDllMmZlLTU3NmUtNGI2MS1hZjA4LTEwNzAzZWZjYzUxOABGAAAAAABG8jimhHIeTrzzeDCLnQR9BwAIHnK_cnn0TIdFuplFGEzAAAAAAAEMAAAIHnK_cnn0TIdFuplFGEzAAAATEljYAAA=",
+      "job_title": "SAP ABAP",
+      "skills": [
+        "SAP ABAP"
+      ],
+      "experience": "",
+      "location": [],
+      "notice_period": "",
+      "parsed_requirements_count": 1,
+      "parsed_overall_confidence": 0.85,
+      "parsed_processing_note": "",
+      "fallback_reason": "",
+      "raw_requirement_json": {
+        "source": {
+          "vendor_key": "itc",
+          "vendor_display": "ITC",
+          "sender_domain": "itcinfotech.com",
+          "sender_email": "Manashi.Adhikari@itcinfotech.com",
+          "sender_name": "Manashi Adhikari"
+        },
+        "subject": "Recall: SAP ABAP Drive _ 27th & 28th  April 2026 (Face to Face) - We need profiles Today",
+        "summary": "Manashi Adhikari would like to recall the message, \"SAP ABAP Drive _ 27th & 28th  April 2026 (Face to Face) - We need profiles Today\".",
+        "locations": [],
+        "key_points": [],
+        "experience_mentions": [],
+        "roles_table": [],
+        "candidate_submissions": [],
+        "parse": {
+          "roles_table_rows": 0,
+          "candidate_submission_rows": 0,
+          "key_points_count": 0
+        }
+      },
+      "duplicate_group_size": 1,
+      "merged_from_seq": [
+        2
+      ]
+    },
+    {
+      "seq": 4,
+      "received_date_time": "2026-04-22T07:16:01Z",
+      "source_vendor_key": "itc",
+      "from_name": "Manashi Adhikari",
+      "from_email": "Manashi.Adhikari@itcinfotech.com",
+      "subject": "SAP ABAP Drive _ 27th & 28th  April 2026 (Face to Face) - We need profiles Today",
+      "graph_id": "AAMkADE3NDllMmZlLTU3NmUtNGI2MS1hZjA4LTEwNzAzZWZjYzUxOABGAAAAAABG8jimhHIeTrzzeDCLnQR9BwAIHnK_cnn0TIdFuplFGEzAAAAAAAEMAAAIHnK_cnn0TIdFuplFGEzAAAATEljZAAA=",
+      "job_title": "SAP ABAP",
+      "skills": [
+        "OData services (SAP Gateway / SEGW)",
+        "OData services (SAP Gateway",
+        "IDoc configuration",
+        "CDS Views in S4HANA environment",
+        "Object-Oriented ABAP (OOABAP)",
+        "Familiarity with REST APIs",
+        "SAP Fiori/UI5 integration",
+        "Eclipse-based ABAP development (ADT)",
+        "Strong debugging",
+        "performance optimization",
+        "problem-solving skills",
+        "Excellent communication"
+      ],
+      "experience": "4-7 years",
+      "location": [
+        "Kolkata ITC Office Green Centre"
+      ],
+      "notice_period": "April / May joiners",
+      "parsed_requirements_count": 3,
+      "parsed_overall_confidence": 0.98,
+      "parsed_processing_note": "",
+      "fallback_reason": "",
+      "raw_requirement_json": {
+        "source": {
+          "vendor_key": "itc",
+          "vendor_display": "ITC",
+          "sender_domain": "itcinfotech.com",
+          "sender_email": "Manashi.Adhikari@itcinfotech.com",
+          "sender_name": "Manashi Adhikari"
+        },
+        "subject": "SAP ABAP Drive _ 27th & 28th  April 2026 (Face to Face) - We need profiles Today",
+        "summary": "Dear All\nWe have planned a week drive on 27\nth\n-28 April 2026 (Monday & Tuesday) , at our Kolkata office for the above\nskill (4 -7years exp in SAP ABAP ). Need April / May joiners.\nWe are sourcing for 3PT only (duration is 6Month)\nBudget- 15LPA\nLocation: Kolkata ITC Office Green Centre\nKindly start sourcing profiles and upload them SO against the now. Additional SOs will be shared shortly.\nRequest you to closely coordinate with me\u00a0for this weekend drive. Please also assign a dedicated SPOC/POC from your team for regular coordination.\nAlso, share the sourced profiles along with the tracker in\u2026",
+        "locations": [
+          "Kolkata ITC Office Green Centre"
+        ],
+        "key_points": [],
+        "experience_mentions": [
+          "4 -7years",
+          "4\u20137 years"
+        ],
+        "roles_table": [],
+        "candidate_submissions": [],
+        "parse": {
+          "roles_table_rows": 0,
+          "candidate_submission_rows": 0,
+          "key_points_count": 0
+        }
+      },
+      "duplicate_group_size": 4,
+      "merged_from_seq": [
+        3,
+        4,
+        5,
+        7
+      ]
+    },
+    {
+      "seq": 6,
+      "received_date_time": "2026-04-22T08:42:12Z",
+      "source_vendor_key": "itc",
+      "from_name": "Recruitment Team",
+      "from_email": "Recruitment.Team@itcinfotech.com",
+      "subject": "Request to upload relevant profiles |SAP ABAP Developer 62123",
+      "graph_id": "AAMkADE3NDllMmZlLTU3NmUtNGI2MS1hZjA4LTEwNzAzZWZjYzUxOABGAAAAAABG8jimhHIeTrzzeDCLnQR9BwAIHnK_cnn0TIdFuplFGEzAAAAAAAEMAAAIHnK_cnn0TIdFuplFGEzAAAATEljcAAA=",
+      "job_title": "SAP ABAP Developer",
+      "skills": [
+        "SAP",
+        "ABAP"
+      ],
+      "experience": "",
+      "location": [],
+      "notice_period": "",
+      "parsed_requirements_count": 1,
+      "parsed_overall_confidence": 0.85,
+      "parsed_processing_note": "",
+      "fallback_reason": "",
+      "raw_requirement_json": {
+        "source": {
+          "vendor_key": "itc",
+          "vendor_display": "ITC",
+          "sender_domain": "itcinfotech.com",
+          "sender_email": "Recruitment.Team@itcinfotech.com",
+          "sender_name": "Recruitment Team"
+        },
+        "subject": "Request to upload relevant profiles |SAP ABAP Developer 62123",
+        "summary": "Hi\nMetaforge IT Solutions Pvt Ltd.(5144)\n,\nWe're pleased to inform you that a job opportunity -\nSAP ABAP Developer\n,\n62123\nhas been activated for candidate profile submission.\nWe kindly request your assistance in logging into the system and uploading relevant candidate profiles against\nSAP ABAP Developer\n,\n62123\n. Your expertise and collaboration are invaluable in sourcing top talent for this position.\nThank you for your ongoing partnership and dedication to finding the best talent for us. We look forward to receiving your candidate profiles and making meaningful strides together.\nLogin",
+        "locations": [],
+        "key_points": [],
+        "experience_mentions": [],
+        "roles_table": [],
+        "candidate_submissions": [],
+        "parse": {
+          "roles_table_rows": 0,
+          "candidate_submission_rows": 0,
+          "key_points_count": 0
+        }
+      },
+      "duplicate_group_size": 1,
+      "merged_from_seq": [
+        6
+      ]
+    },
+    {
+      "seq": 8,
+      "received_date_time": "2026-04-22T10:16:30Z",
+      "source_vendor_key": "ltts",
+      "from_name": "Trayeetanu Ganguly",
+      "from_email": "Trayeetanu.Ganguly@Ltts.com",
+      "subject": "RE:  TPC - Requirement - Piping Checker  , Vadodara",
+      "graph_id": "AAMkADE3NDllMmZlLTU3NmUtNGI2MS1hZjA4LTEwNzAzZWZjYzUxOABGAAAAAABG8jimhHIeTrzzeDCLnQR9BwAIHnK_cnn0TIdFuplFGEzAAAAAAAEMAAAIHnK_cnn0TIdFuplFGEzAAAATEljgAAA=",
+      "job_title": "Piping Checker",
+      "skills": [
+        "Piping Engineering",
+        "Piping Detail Engineering",
+        "Oil & Gas",
+        "Chemical projects",
+        "3D model platform",
+        "Piping Isometrics",
+        "Piping GA drawings",
+        "Pipe Support drawings",
+        "Piping MTO",
+        "P&IDs",
+        "Equipment data sheets",
+        "Vendor drawings"
+      ],
+      "experience": "10-15 years",
+      "location": [
+        "Vadodara"
+      ],
+      "notice_period": "",
+      "parsed_requirements_count": 1,
+      "parsed_overall_confidence": 0.95,
+      "parsed_processing_note": "",
+      "fallback_reason": "",
+      "raw_requirement_json": {
+        "source": {
+          "vendor_key": "ltts",
+          "vendor_display": "LTTS",
+          "sender_domain": "ltts.com",
+          "sender_email": "Trayeetanu.Ganguly@Ltts.com",
+          "sender_name": "Trayeetanu Ganguly"
+        },
+        "subject": "RE:  TPC - Requirement - Piping Checker  , Vadodara",
+        "summary": "Dear Partner,\nKindly share quality profiles with\n@Chavda Prabha Girishkumar\nwith priority.\nOpen Positions- 1 position\nYears of Exp \u2013 5 -7 Years\nBill Rate per month for TPC (in terms of INR)-\n1.4 L\nWork location \u2013\nVadodara only\nMode \u2013 Face to Face\nMandatory skills \u2013\nExperience\n10-15 years\u2019 experience in Piping Engineering field.\nMinimum 5 years hands-on experience in Piping Detail Engineering of Oil & Gas\nand/or Chemical projects, executed on a 3D model platform\n(A) Job Description :\nWorking in a team led by Lead/Area Lead; Undertaking below tasks\nEnsuring the quality of Piping deliverables vi\u2026",
+        "locations": [],
+        "key_points": [
+          "Piping Isometrics",
+          "Piping GA drawings",
+          "Pipe Support drawings",
+          "Piping MTO"
+        ],
+        "experience_mentions": [
+          "5 -7 Years",
+          "10-15 years",
+          "5 years"
+        ],
+        "roles_table": [],
+        "candidate_submissions": [],
+        "parse": {
+          "roles_table_rows": 0,
+          "candidate_submission_rows": 0,
+          "key_points_count": 4
+        }
+      },
+      "duplicate_group_size": 1,
+      "merged_from_seq": [
+        8
+      ]
+    },
+    {
+      "seq": 9,
+      "received_date_time": "2026-04-22T11:21:21Z",
+      "source_vendor_key": "itc",
+      "from_name": "Rajeshwari Negi",
+      "from_email": "Rajeshwari.Negi@itcinfotech.com",
+      "subject": "SOS Sourcing Support : ERP open Positions",
+      "graph_id": "AAMkADE3NDllMmZlLTU3NmUtNGI2MS1hZjA4LTEwNzAzZWZjYzUxOABGAAAAAABG8jimhHIeTrzzeDCLnQR9BwAIHnK_cnn0TIdFuplFGEzAAAAAAAEMAAAIHnK_cnn0TIdFuplFGEzAAAATEljkAAA=",
+      "job_title": "ERP",
+      "skills": [
+        "ERP"
+      ],
+      "experience": "",
+      "location": [],
+      "notice_period": "",
+      "parsed_requirements_count": 1,
+      "parsed_overall_confidence": 0.3,
+      "parsed_processing_note": "",
+      "fallback_reason": "",
+      "raw_requirement_json": {
+        "source": {
+          "vendor_key": "itc",
+          "vendor_display": "ITC",
+          "sender_domain": "itcinfotech.com",
+          "sender_email": "Rajeshwari.Negi@itcinfotech.com",
+          "sender_name": "Rajeshwari Negi"
+        },
+        "subject": "SOS Sourcing Support : ERP open Positions",
+        "summary": "Hi All,\nPlease join the call.",
+        "locations": [],
+        "key_points": [],
+        "experience_mentions": [],
+        "roles_table": [],
+        "candidate_submissions": [],
+        "parse": {
+          "roles_table_rows": 0,
+          "candidate_submission_rows": 0,
+          "key_points_count": 0
+        }
+      },
+      "duplicate_group_size": 1,
+      "merged_from_seq": [
+        9
+      ]
+    }
+  ]
+}

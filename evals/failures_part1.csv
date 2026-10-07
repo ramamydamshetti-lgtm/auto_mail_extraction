@@ -1,0 +1,3 @@
+id,schema_compliant,hallucination_count,low_score_fields,job_title_expected,job_title_actual,experience_expected,experience_actual,skills_expected,skills_actual,location_expected,location_actual
+ltts_2026_03_16_teamcenter_admin_developer_001,True,0,skills,Teamcenter Admin,Teamcenter Admin,4-5 years,4-5 years,"Teamcenter RAC, AWC, FMS, PLMXML, TCXML, CREO, BMIDE",['Teamcenter Admin'],Chennai,['Chennai']
+ltts_2026_02_03_ms_cornerstone_lms_001,True,0,"job_title,experience,skills",Cornerstone LMS Administrator,Cornerstone LMS Consultant,,unknown,"Cornerstone LMS, SCORM, AICC, ServiceNow, LMS reporting","['Cornerstone', 'LMS']","Bangalore, Mysore","['Bangalore', 'Mysore']"

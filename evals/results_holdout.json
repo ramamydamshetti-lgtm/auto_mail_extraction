@@ -1,0 +1,77 @@
+{
+  "summary": {
+    "overall_accuracy": 0.0,
+    "job_title_accuracy": 0.0,
+    "experience_accuracy": 0.0,
+    "skills_accuracy": 0.0,
+    "location_accuracy": 0.0,
+    "schema_compliance_rate": 1.0,
+    "hallucination_rate": 0.0,
+    "samples_evaluated": 3.0
+  },
+  "samples": [
+    {
+      "id": "kpmg_2026_03_26_multi_data_ai_roles_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.0,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 0.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "GCP Data Engineer",
+        "experience": "10+ years",
+        "skills": "GCP, Scala, Spark, Kafka, SQL",
+        "location": "Bangalore",
+        "budget": "3.75/M",
+        "number_of_positions": 3,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {}
+    },
+    {
+      "id": "kpmg_2026_04_17_sr_snowflake_de_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.0,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 0.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Senior Snowflake Data Engineer",
+        "experience": "6-8 years",
+        "skills": "Snowflake, DBT, Databricks",
+        "location": "Bangalore",
+        "budget": "",
+        "number_of_positions": 2,
+        "client_name": "KPMG"
+      },
+      "actual_requirement": {}
+    },
+    {
+      "id": "ltts_2026_04_16_tpc_mnt_embedded_audio_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.0,
+        "experience": 0.0,
+        "skills": 0.0,
+        "location": 0.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "WiFi RTOS Embedded Engineer",
+        "experience": "5-12 years",
+        "skills": "WiFi, RTOS, IEEE 802.11, Zephyr, HAL, PDL",
+        "location": "Bangalore",
+        "budget": "146000-180000 per month",
+        "number_of_positions": 1,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {}
+    }
+  ]
+}

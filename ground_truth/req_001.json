@@ -1,0 +1,34 @@
+{
+  "email_id": "req_001",
+  "requirements": [
+    {
+      "job_title": "Business Analyst / IT Controlling",
+      "skills": [
+        "IT Controlling",
+        "SAP CO",
+        "SAP CO/PS",
+        "BW/BI",
+        "Power BI",
+        "Excel",
+        "Jira",
+        "Confluence",
+        "Budgeting and forecasting",
+        "Cost center/project tracking",
+        "Variance/actuals analysis",
+        "Month-end reporting"
+      ],
+      "experience": "5-8 years",
+      "location": "Bangalore",
+      "budget": "18-20 LPA",
+      "notice_period": "Immediate",
+      "client_poc": "Prakruthi S (Prakruthi.S@itcinfotech.com)",
+      "evidence_quotes": {
+        "experience": "Exp � 5+ ... 4-8 Years",
+        "budget": "Budget � 18 to 20L",
+        "location": "Location � Bangalore",
+        "skills": "Skill � IT Controlling + SAP CO/PS, BW/BI, Power BI/Excel, Jira/Confluence",
+        "client_poc": "TA POC - Prakruthi S Prakruthi.S@itcinfotech.com"
+      }
+    }
+  ]
+}

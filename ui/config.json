@@ -1,0 +1,53 @@
+{
+  "host": "127.0.0.1",
+  "port": 5000,
+  "db_paths": [
+    "data/metaforge_requirements.db",
+    "data/processed_messages.db"
+  ],
+  "ingest_start_datetime": "2026-09-01T00:00:00+05:30",
+  "default_page_size": 20,
+  "max_page_size": 100,
+  "max_suggestion_limit": 15,
+  "default_sort": "req_id",
+  "default_sort_order": "desc",
+  "id_normalization_rule": {
+    "strip_whitespace": true,
+    "uppercase": true
+  },
+  "columns": [
+    {"key": "req_id", "label": "Req ID"},
+    {"key": "requirement_from", "label": "Client"},
+    {"key": "job_title", "label": "Job Title"},
+    {"key": "location", "label": "Location"},
+    {"key": "number_of_positions", "label": "Positions"}
+  ],
+
+  "status_badge_colors": {
+    "Open": "success",
+    "Active": "success",
+    "High": "danger",
+    "P1": "danger",
+    "P2": "warning",
+    "P3": "info"
+  },
+  "field_label_overrides": {
+    "req_id": "Requirement ID",
+    "client_jd_id": "Client Req ID",
+    "job_id": "System Job ID",
+    "requirement_from": "Client Name",
+    "job_title": "Job Title / Role",
+    "number_of_positions": "Open Positions",
+    "overall_experience": "Experience Required",
+    "mandatory_skills": "Mandatory Skills",
+    "skills": "Additional Skills",
+    "work_mode": "Work Mode",
+    "location": "Location",
+    "monthly_budget": "Monthly Budget",
+    "yearly_budget": "Yearly Budget",
+    "employment_type": "Employment Type",
+    "priority": "Priority",
+    "client_poc": "Client Contact Point",
+    "demand_received_date": "Received Date"
+  }
+}

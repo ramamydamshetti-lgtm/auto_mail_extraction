@@ -1,0 +1,56 @@
+[
+  {
+    "id": {
+      "graph_id": "AAMkADE3NDllMmZlLTU3NmUtNGI2MS1hZjA4LTEwNzAzZWZjYzUxOABGAAAAAABG8jimhHIeTrzzeDCLnQR9BwAIHnK_cnn0TIdFuplFGEzAAAAAAAEMAAAIHnK_cnn0TIdFuplFGEzAAAALD6wKAAA=",
+      "internet_message_id": "<MA5PR01MB107996513357BAAF49E4BC3C7FB592@MA5PR01MB10799.INDPRD01.PROD.OUTLOOK.COM>"
+    },
+    "metadata": {
+      "subject": "Doors and Closures BIW Design for Bangalore-TPC",
+      "from": {
+        "email": "Trayeetanu.Ganguly@Ltts.com",
+        "name": "Trayeetanu Ganguly"
+      },
+      "to": [
+        "Kiran.N_ext@Ltts.com",
+        "Pranati.Paul_ext@Ltts.com"
+      ],
+      "received_date_time": "2026-04-10T05:05:53Z",
+      "is_read": false
+    },
+    "content": {
+      "normalized": "Dear Partner,\nKindly share quality profiles with\n@Kiran N\nmarking a CC to\n@Pranati Paul\nPlease note that the L1 selected candidates must attend the client interview in person in Bangalore.\nOpen Postions-7\nBill Rate-70000 max\nExp-4-6 Years\nCustomer Round-Yes(F2F) in Bangalore\nSkill:\nDoors and Closures BIW design and development\nJob Description:\nProduct design and development Doors and Closures:\nDevelopment of BIW components and CAD Construction in NX with Daimler methodology.\nMaster section creation and validations, Benchmarking\nStyling validation for technical requirement.\nConcept proposal, Packaging study, Interference check.\nUnderstanding of Door mechanisms, Glass, Hinges and Handles\nCreation of joining elements for the assembly\nGenerating ideas for cost reduction and weight reduction\nEnsure quality and timelines of every deliverables in the projects.\nDiscussion with cross functional teams (CFT) for incorporating feedback e.g., Simulation, Manufacturing, Vehicle integration, Corrosion protection and incorporating changes\nChange Management\nQualifications -\nBE Mechanical with min 3 years of experience in BIW Door and Closures"
+    },
+    "attachments": [],
+    "extracted": {
+      "job_table": {
+        "locations": [],
+        "roles": [],
+        "candidate_submissions": []
+      }
+    },
+    "requirement": {
+      "source": {
+        "vendor_key": "ltts",
+        "vendor_display": "LTTS",
+        "sender_domain": "ltts.com",
+        "sender_email": "Trayeetanu.Ganguly@Ltts.com",
+        "sender_name": "Trayeetanu Ganguly"
+      },
+      "subject": "Doors and Closures BIW Design for Bangalore-TPC",
+      "summary": "Dear Partner,\nKindly share quality profiles with\n@Kiran N\nmarking a CC to\n@Pranati Paul\nPlease note that the L1 selected candidates must attend the client interview in person in Bangalore.\nOpen Postions-7\nBill Rate-70000 max\nExp-4-6 Years\nCustomer Round-Yes(F2F) in Bangalore\nSkill:\nDoors and Closures BIW design and development\nJob Description:\nProduct design and development Doors and Closures:\nDevelopment of BIW components and CAD Construction in NX with Daimler methodology.\nMaster section creation and validations, Benchmarking\nStyling validation for technical requirement.\nConcept proposal, P…",
+      "locations": [],
+      "key_points": [],
+      "experience_mentions": [
+        "4-6 Years",
+        "3 years"
+      ],
+      "roles_table": [],
+      "candidate_submissions": [],
+      "parse": {
+        "roles_table_rows": 0,
+        "candidate_submission_rows": 0,
+        "key_points_count": 0
+      }
+    }
+  }
+]

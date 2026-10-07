@@ -1,0 +1,49 @@
+{
+  "email_id": "req_002",
+  "requirements": [
+    {
+      "job_title": "Apriso Developer",
+      "skills": [
+        "Apriso"
+      ],
+      "number_of_positions": 1,
+      "location": "Pune / Bangalore",
+      "budget": "13-15 LPA",
+      "budget_context": "40/50% hike possible",
+      "experience": null
+    },
+    {
+      "job_title": "Apriso Lead",
+      "skills": [
+        "Apriso"
+      ],
+      "number_of_positions": 1,
+      "location": "Pune / Bangalore",
+      "budget": "20-25 LPA",
+      "budget_context": "40/50% hike possible",
+      "experience": null
+    },
+    {
+      "job_title": "Kinaxis Lead",
+      "skills": [
+        "Kinaxis"
+      ],
+      "number_of_positions": 1,
+      "location": "Pune / Bangalore",
+      "budget": "22-28 LPA",
+      "budget_context": "40/50% hike possible",
+      "experience": null
+    },
+    {
+      "job_title": "Kinaxis Developer",
+      "skills": [
+        "Kinaxis"
+      ],
+      "number_of_positions": 1,
+      "location": "Pune / Bangalore",
+      "budget": "13-15 LPA",
+      "budget_context": "40/50% hike possible",
+      "experience": null
+    }
+  ]
+}

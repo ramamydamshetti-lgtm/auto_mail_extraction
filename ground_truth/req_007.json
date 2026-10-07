@@ -1,0 +1,63 @@
+{
+  "email_id": "req_007",
+  "requirements": [
+    {
+      "client_meta": {
+        "client_name": "Happiest Minds",
+        "source_sender": "reddemma.n@happiestminds.com",
+        "thread_type": "requirement_followed_by_candidate_submissions"
+      },
+      "extracted_data": {
+        "job_title": {
+          "value": "Azure Data Engineer - Databricks",
+          "confidence": 0.93,
+          "evidence_quote": "Supporting you in your/Happiest Minds Azure Data Engineer - Databricks Objectives",
+          "method": "ai_semantic"
+        },
+        "skills": {
+          "value": [
+            "Azure Data Engineer",
+            "Databricks"
+          ],
+          "confidence": 0.9,
+          "evidence_quote": "Databricks objectives ... Skill ... Azure Databricks",
+          "method": "ai_semantic"
+        },
+        "experience": {
+          "value": "6+ years",
+          "confidence": 1.0,
+          "evidence_quote": "Currently we are looking for 6+ Yrs of experience.",
+          "method": "regex_anchor"
+        },
+        "location": {
+          "value": "Bangalore",
+          "confidence": 0.9,
+          "evidence_quote": "operating from HappiestMinds, Bangalore Location",
+          "method": "regex_anchor"
+        },
+        "budget": {
+          "value": null,
+          "confidence": 0.0,
+          "evidence_quote": "",
+          "method": "not_found"
+        },
+        "notice_period": {
+          "value": null,
+          "confidence": 0.0,
+          "evidence_quote": "",
+          "method": "not_found"
+        },
+        "number_of_positions": {
+          "value": null,
+          "confidence": 0.0,
+          "evidence_quote": "",
+          "method": "not_found"
+        }
+      },
+      "field_quality_gating": {
+        "overall_status": "yellow",
+        "reasoning": "Core role and experience are present; budget/notice/positions are not explicitly defined in requirement context. Candidate profile rows must be excluded."
+      }
+    }
+  ]
+}

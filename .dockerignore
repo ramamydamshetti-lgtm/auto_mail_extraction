@@ -1,0 +1,16 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite
+data/*.db
+data/*.sqlite
+data/*.csv
+data/*.json
+raw_emails
+ground_truth
+evals
+.git
+.gitignore

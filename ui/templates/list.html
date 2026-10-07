@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Requirements Dashboard — Metaforge{% endblock %}
+
+{% block extra_head %}
+  <meta http-equiv="refresh" content="120">
+{% endblock %}
+
+{% block content %}
+<!-- Dashboard Header -->
+<div class="dashboard-header">
+  <div class="dashboard-title">
+    <h1>Requirements Dashboard</h1>
+    <p>Track and manage all hiring requirements</p>
+  </div>
+  <a href="/requirement/ITC-2026-09-28-001" class="btn-primary-action">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+    Create New Job Demand
+  </a>
+</div>
+
+<!-- KPI Summary Cards Grid -->
+<div class="kpi-grid">
+  <!-- 1. Total -->
+  <div class="kpi-card theme-total">
+    <div class="kpi-info">
+      <div class="kpi-label">Total Requirements</div>
+      <div class="kpi-value">{{ kpis.total if kpis else total_count }}</div>
+    </div>
+    <div class="kpi-icon-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+    </div>
+  </div>
+
+  <!-- 2. Submissions -->
+  <div class="kpi-card theme-submissions">
+    <div class="kpi-info">
+      <div class="kpi-label">Submissions</div>
+      <div class="kpi-value">{{ kpis.submissions if kpis else 0 }}</div>
+    </div>
+    <div class="kpi-icon-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </div>
+  </div>
+
+  <!-- 3. Unassigned -->
+  <div class="kpi-card theme-unassigned">
+    <div class="kpi-info">
+      <div class="kpi-label">Unassigned</div>
+      <div class="kpi-value">{{ kpis.unassigned if kpis else 0 }}</div>
+    </div>
+    <div class="kpi-icon-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
+    </div>
+  </div>
+
+  <!-- 4. Assigned -->
+  <div class="kpi-card theme-assigned">
+    <div class="kpi-info">
+      <div class="kpi-label">Assigned</div>
+      <div class="kpi-value">{{ kpis.assigned if kpis else 0 }}</div>
+    </div>
+    <div class="kpi-icon-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+    </div>
+  </div>
+
+  <!-- 5. Open Demands -->
+  <div class="kpi-card theme-in-progress">
+    <div class="kpi-info">
+      <div class="kpi-label">Open Demands</div>
+      <div class="kpi-value">{{ kpis.open if kpis else 0 }}</div>
+    </div>
+    <div class="kpi-icon-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </div>
+  </div>
+
+  <!-- 6. On Hold -->
+  <div class="kpi-card theme-interviews">
+    <div class="kpi-info">
+      <div class="kpi-label">On Hold</div>
+      <div class="kpi-value">{{ kpis.hold if kpis else 0 }}</div>
+    </div>
+    <div class="kpi-icon-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    </div>
+  </div>
+
+  <!-- 7. Closed -->
+  <div class="kpi-card theme-rejected">
+    <div class="kpi-info">
+      <div class="kpi-label">Closed</div>
+      <div class="kpi-value">{{ kpis.closed if kpis else 0 }}</div>
+    </div>
+    <div class="kpi-icon-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+    </div>
+  </div>
+</div>
+
+<!-- Search and Multi-Filter Bar -->
+<form method="GET" action="/" class="filter-search-container">
+  <div class="filter-grid">
+    <div class="search-input-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" name="q" value="{{ q }}" placeholder="Requirement ID" />
+    </div>
+
+    <div class="search-input-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" name="client" value="{{ client }}" placeholder="Client name" />
+    </div>
+
+    <div class="search-input-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" name="role_loc" placeholder="Role / Location" />
+    </div>
+
+    <div class="search-input-wrapper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" name="owner" placeholder="Owner / Recruiter" />
+    </div>
+
+    <button type="submit" class="btn-primary-action" style="padding: 0.55rem 1rem; font-size: 0.825rem;">Filter</button>
+  </div>
+  <div class="filter-count-label">
+    {{ total_count }} requirement(s)
+  </div>
+</form>
+
+<!-- Data Table for Real Extracted Requirements -->
+<div class="table-card-container">
+  <div class="table-responsive">
+    <table class="req-data-table">
+      <thead>
+        <tr>
+          <th style="width: 40px; text-align: center;"><input type="checkbox" /></th>
+          <th>REQUIREMENT ID</th>
+          <th>CLIENT NAME</th>
+          <th>CLIENT EMAIL ID</th>
+          <th>ROLE</th>
+          <th>PRIORITY</th>
+          <th>OWNER</th>
+          <th>
+            {% set next_order = 'asc' if (sort == 'first_arrival_at' or sort == 'arr_iso') and order == 'desc' else 'desc' %}
+            <a href="?q={{ q }}&client={{ client }}&status={{ status }}&sort=first_arrival_at&order={{ next_order }}&page=1" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+              EMAIL ARRIVED
+              {% if sort == 'first_arrival_at' or sort == 'arr_iso' %}
+                {% if order == 'asc' %}▲{% else %}▼{% endif %}
+              {% else %}
+                ▼
+              {% endif %}
+            </a>
+          </th>
+          <th>OPEN SINCE</th>
+          <th>SUBMISSIONS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if items %}
+          {% for item in items %}
+          {% set p = item.payload %}
+          {% set client_name = p.get('requirement_from') or '—' %}
+          {% set raw_poc = p.get('client_lead_poc') or p.get('client_poc') %}
+          {% if raw_poc and raw_poc != 'None' and raw_poc != 'unknown' %}
+            {% set display_email = raw_poc %}
+          {% else %}
+            {% set display_email = '—' %}
+          {% endif %}
+
+          <tr onclick="window.location.href='/requirement/{{ item.req_id }}'">
+            <td style="text-align: center;" onclick="event.stopPropagation();"><input type="checkbox" /></td>
+            <td style="white-space: nowrap;">
+              {% set clean_cid = item.client_jd_id.strip('[]() ') if item.client_jd_id else '' %}
+              {% if clean_cid and clean_cid != item.req_id %}
+                <span class="req-id-text">{{ item.req_id }}</span> (<a href="/requirement/{{ clean_cid }}" class="req-id-link">{{ clean_cid }}</a>)
+              {% elif clean_cid %}
+                <a href="/requirement/{{ clean_cid }}" class="req-id-link">{{ clean_cid }}</a>
+              {% else %}
+                <a href="/requirement/{{ item.req_id }}" class="req-id-link">{{ item.req_id }}</a>
+              {% endif %}
+              {% if item.is_new %}
+                <span class="badge-new" style="background-color: #10b981; color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase;">NEW</span>
+              {% endif %}
+              {% if item.legacy_unverified or p.get('legacy_unverified') %}
+                <span class="badge-legacy" style="background-color: #f59e0b; color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase;">LEGACY</span>
+              {% endif %}
+            </td>
+            <td style="font-weight: 500;">{{ client_name }}</td>
+            <td style="color: #4b5563;">{{ display_email }}</td>
+            <td style="max-width: 320px;">
+              <div style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: #0f172a;">
+                {{ p.get('job_title') or '—' }}
+              </div>
+              <div style="font-size: 0.75rem; color: #64748b; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                {% set msk = p.get('mandatory_skills') %}
+                {% if msk and msk is iterable and msk is not string and msk|length > 0 %}
+                  {{ msk|join(', ') }}
+                {% else %}
+                  {{ msk or p.get('location') or '—' }}
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              {% set prio = (p.get('priority') or '')|upper %}
+              {% if prio in ['HIGH', 'P1'] %}
+                <span class="priority-badge priority-high">HIGH</span>
+              {% elif prio in ['MEDIUM', 'P2'] %}
+                <span class="priority-badge priority-medium">MEDIUM</span>
+              {% elif prio in ['LOW', 'P3'] %}
+                <span class="priority-badge priority-low">LOW</span>
+              {% else %}
+                <span class="priority-badge priority-neutral">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="owner-pill"><span class="owner-dot"></span> {{ p.get('owner') or '—' }}</span>
+            </td>
+            <td style="white-space: nowrap; color: #4b5563; font-size: 0.8rem;" title="UTC: {{ (item.arr_iso or item.created_at)|format_utc_instant }}">
+              {{ (item.arr_iso or item.created_at)|format_received_time }}
+            </td>
+            <td style="white-space: nowrap; font-size: 0.8rem; color: #4b5563;">
+              {{ (item.arr_iso or item.created_at)|format_open_since }}
+            </td>
+            <td style="font-weight: 700; text-align: center;">
+              {{ p.get('submissions_count', 0) }}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="10" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+              No requirements matching the criteria were found.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Controls -->
+  {% if total_pages > 1 %}
+  <div class="pagination-row">
+    <div>Showing page {{ page }} of {{ total_pages }} ({{ total_count }} total extracted requirements)</div>
+    <div class="pagination-pages">
+      {% if page > 1 %}
+      <a href="?q={{ q }}&client={{ client }}&status={{ status }}&sort={{ sort }}&order={{ order }}&page={{ page - 1 }}" class="page-btn">Prev</a>
+      {% endif %}
+
+      {% for p_num in range(1, total_pages + 1) %}
+        {% if p_num == page %}
+        <span class="page-btn active">{{ p_num }}</span>
+        {% elif p_num <= 3 or p_num >= total_pages - 2 or (p_num >= page - 1 and p_num <= page + 1) %}
+        <a href="?q={{ q }}&client={{ client }}&status={{ status }}&sort={{ sort }}&order={{ order }}&page={{ p_num }}" class="page-btn">{{ p_num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page < total_pages %}
+      <a href="?q={{ q }}&client={{ client }}&status={{ status }}&sort={{ sort }}&order={{ order }}&page={{ page + 1 }}" class="page-btn">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

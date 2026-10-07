@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Error {{ code }} — Requirements Explorer{% endblock %}
+
+{% block content %}
+<div class="panel error-box">
+  <div class="error-code">{{ code }}</div>
+  <h2 style="margin: 1rem 0; font-size: 1.5rem;">{{ message }}</h2>
+  <p style="color: #94a3b8; margin-bottom: 2rem;">An unexpected issue occurred or the requested page was not found.</p>
+  <a href="/" class="btn-back" style="display: inline-flex; margin: 0;">Back to Home</a>
+</div>
+{% endblock %}

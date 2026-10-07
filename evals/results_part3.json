@@ -1,0 +1,168 @@
+{
+  "summary": {
+    "overall_accuracy": 0.7267711962833915,
+    "job_title_accuracy": 0.7642276422764228,
+    "experience_accuracy": 1.0,
+    "skills_accuracy": 0.14285714285714285,
+    "location_accuracy": 1.0,
+    "schema_compliance_rate": 1.0,
+    "hallucination_rate": 0.0,
+    "samples_evaluated": 3.0
+  },
+  "samples": [
+    {
+      "id": "ltts_2026_04_21_automotive_hardware_engineer_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Automotive Hardware Engineer",
+        "experience": "5-7 years",
+        "skills": "PSPICE, LTSpice, MATHCAD, OrCAD, Altium, DxDesigner",
+        "location": "Bangalore",
+        "budget": "130000 per month",
+        "number_of_positions": 3,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Automotive Hardware Engineer",
+        "number_of_positions": 3,
+        "experience_level": "Mid Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 1560000,
+        "yearly_budget_max": 1560000,
+        "mandatory_skills": [],
+        "skills": [
+          "Automotive Hardware"
+        ],
+        "experience": "5-7 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.85,
+        "field_confidence": {
+          "job_title": 0.9,
+          "budget": 0.9,
+          "skills": 0.8,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_stress_analysis_bangalore_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 1.0,
+        "experience": 1.0,
+        "skills": 0.42857142857142855,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Stress Analysis Engineer",
+        "experience": "6+ years",
+        "skills": "Patran, Nastran, FEA, fatigue analysis, composite structures",
+        "location": "Bangalore",
+        "budget": "90000 per month",
+        "number_of_positions": 4,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Stress Analysis Engineer",
+        "number_of_positions": 4,
+        "experience_level": "Senior Level",
+        "employment_type": "Contract",
+        "work_mode": "Hybrid",
+        "location": [
+          "Bangalore"
+        ],
+        "yearly_budget_min": 1080000,
+        "yearly_budget_max": 1080000,
+        "mandatory_skills": [
+          "Patran",
+          "Nastran",
+          "load path",
+          "FEA",
+          "FBD"
+        ],
+        "skills": [
+          "Patran",
+          "Nastran",
+          "load path",
+          "FEA",
+          "FBD"
+        ],
+        "experience": "6+ years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 0.9,
+          "budget": 0.85,
+          "skills": 1.0,
+          "location": 1.0
+        }
+      }
+    },
+    {
+      "id": "ltts_2026_04_21_data_analyst_vadodara_001",
+      "schema_compliant": true,
+      "field_scores": {
+        "job_title": 0.29268292682926833,
+        "experience": 1.0,
+        "skills": 0.0,
+        "location": 1.0
+      },
+      "hallucination_count": 0,
+      "expected_requirement": {
+        "job_title": "Data Analyst - Mechanical/Instrumentation",
+        "experience": "3-6 years",
+        "skills": "P&ID, datasheet, SLD, DCS, PLC, Excel, Access",
+        "location": "Vadodara",
+        "budget": "50000-60000 per month",
+        "number_of_positions": 6,
+        "client_name": "LTTS"
+      },
+      "actual_requirement": {
+        "job_title": "Data Analyst",
+        "number_of_positions": 6,
+        "experience_level": "Mid Level",
+        "employment_type": "Full-time",
+        "work_mode": "Hybrid",
+        "location": [
+          "Vadodara"
+        ],
+        "yearly_budget_min": 600000,
+        "yearly_budget_max": 720000,
+        "mandatory_skills": [
+          "Mechanical maintenance",
+          "Instrumentation maintenance"
+        ],
+        "skills": [
+          "Data Analysis"
+        ],
+        "experience": "3-6 years",
+        "notice_period": "",
+        "priority": "unknown",
+        "client_name": "TPC",
+        "confidence": 0.95,
+        "field_confidence": {
+          "job_title": 1.0,
+          "budget": 0.9,
+          "skills": 0.9,
+          "location": 1.0
+        }
+      }
+    }
+  ]
+}

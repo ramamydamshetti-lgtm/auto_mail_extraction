@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Filtered Mails{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h4 mb-0">Filtered Mails</h1>
+    <span class="text-muted small">Emails blocked at the intake gate (up to 200)</span>
+  </div>
+  {% if error %}
+  <div class="alert alert-warning"><strong>Error reading filtered_log:</strong> {{ error }}</div>
+  {% endif %}
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover table-bordered align-middle">
+      <thead class="table-dark">
+        <tr><th>Graph ID</th><th>Reason</th><th>Sender</th><th>Subject</th><th>Received At</th><th>Logged At</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="font-monospace small" title="{{ row.graph_id }}">{{ (row.graph_id or '&mdash;')[:30] }}</td>
+          <td><span class="badge bg-secondary">{{ row.reason or '&mdash;' }}</span></td>
+          <td class="small">{{ row.sender or '&mdash;' }}</td>
+          <td class="small">{{ row.subject or '&mdash;' }}</td>
+          <td class="small text-nowrap">{{ row.received_at or '&mdash;' }}</td>
+          <td class="small text-nowrap">{{ row.created_at or '&mdash;' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-muted small">Showing {{ rows|length }} filtered email(s).</p>
+  {% else %}
+  <div class="alert alert-info">No filtered emails found.</div>
+  {% endif %}
+  <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
+</div>
+{% endblock %}
