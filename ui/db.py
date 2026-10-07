@@ -277,9 +277,17 @@ def fetch_all_records(config: dict, include_archived: bool = False) -> List[Dict
     now = time.time()
     db_paths = config.get("db_paths", [])
     cache_key = (include_archived, tuple(str(p) for p in db_paths))
+
+    db_signature = tuple(
+        (os.path.getmtime(p), os.path.getsize(p))
+        for p in db_paths
+        if os.path.exists(p)
+    )
     cached = _CACHE_RECORDS.get(cache_key)
-    if cached is not None and (now - cached[0]) < _CACHE_TTL:
-        return cached[1]
+    if cached is not None:
+        cached_time, cached_sig, cached_data = cached
+        if (now - cached_time) < _CACHE_TTL and cached_sig == db_signature:
+            return cached_data
 
     from client_detector import detect_client
     from requirement_identity import clean_client_jd_id, compute_requirement_identity, normalize_client_key
@@ -703,7 +711,7 @@ def fetch_all_records(config: dict, include_archived: bool = False) -> List[Dict
         return (req_date, req_seq, dt_obj, row_id)
 
     records.sort(key=_sort_key, reverse=True)
-    _CACHE_RECORDS[cache_key] = (now, records)
+    _CACHE_RECORDS[cache_key] = (now, db_signature, records)
     return records
 
 

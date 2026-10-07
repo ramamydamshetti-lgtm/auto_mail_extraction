@@ -17,7 +17,7 @@ import shutil
 import sys
 import time
 from dataclasses import asdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import Any
 
 from dotenv import load_dotenv
@@ -1474,6 +1474,38 @@ def run_scheduler(args: argparse.Namespace, settings: Settings) -> int:
     mailbox = args.mailbox or settings.mailbox_upn
     lock_file = Path("data/scheduler.lock")
 
+    import atexit
+
+    def _cleanup_lock():
+        try:
+            if lock_file.exists():
+                txt = lock_file.read_text(encoding="utf-8")
+                if f"pid={os.getpid()}" in txt:
+                    lock_file.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    atexit.register(_cleanup_lock)
+
+    # Initial lock check: if another alive scheduler instance exists, exit immediately
+    if lock_file.exists():
+        try:
+            lock_content = lock_file.read_text(encoding="utf-8")
+            m = re.search(r"pid=(\d+)", lock_content)
+            if m:
+                existing_pid = int(m.group(1))
+                if existing_pid != os.getpid():
+                    import subprocess as _sp
+                    res = _sp.run(
+                        ["tasklist", "/FI", f"PID eq {existing_pid}", "/NH", "/FO", "CSV"],
+                        capture_output=True, text=True, timeout=3
+                    )
+                    if str(existing_pid) in res.stdout:
+                        _LOG.warning("Another active Auto Scheduler is already running (PID %s). Exiting.", existing_pid)
+                        return 0
+        except Exception:
+            pass
+
     _LOG.info(
         "Scheduler started (fixed-rate): poll=%ss mailbox=%s heartbeat=%s mode=%s",
         poll_seconds,
@@ -1487,16 +1519,15 @@ def run_scheduler(args: argparse.Namespace, settings: Settings) -> int:
         started_at = datetime.now(timezone.utc).isoformat()
         cycle += 1
 
-        # S2: Process Lock check — dead PID or lock older than 3 minutes is stale
+        # S2: Process Lock check — dead PID or lock older than 5 minutes is stale
         if lock_file.exists():
             try:
                 lock_age = time.time() - lock_file.stat().st_mtime
-                lock_content = lock_file.read_text()
+                lock_content = lock_file.read_text(encoding="utf-8")
                 lock_pid: int | None = None
                 pid_match = re.search(r"pid=(\d+)", lock_content)
                 if pid_match:
                     lock_pid = int(pid_match.group(1))
-                # Check if the PID is alive (Windows: tasklist)
                 pid_alive = False
                 if lock_pid is not None and lock_pid != os.getpid():
                     try:
@@ -1507,30 +1538,28 @@ def run_scheduler(args: argparse.Namespace, settings: Settings) -> int:
                         )
                         pid_alive = str(lock_pid) in result.stdout
                     except Exception:
-                        # If we can't check, assume alive if lock is fresh
-                        pid_alive = lock_age < 180
-                is_stale = (not pid_alive) or (lock_age > 180)
-                if not is_stale:
-                    _LOG.warning(
-                        "Scheduler run already in progress (pid=%s lock age %.1fs); skipping tick per S2.",
-                        lock_pid, lock_age
-                    )
-                    elapsed = time.time() - tick_start
-                    sleep_time = max(0.0, poll_seconds - elapsed)
-                    time.sleep(sleep_time)
-                    continue
-                else:
-                    _LOG.warning(
-                        "Stale lock detected (pid=%s age=%.1fs alive=%s); removing and proceeding.",
-                        lock_pid, lock_age, pid_alive
-                    )
-                    lock_file.unlink(missing_ok=True)
+                        pid_alive = lock_age < 300
+                    if pid_alive and lock_age < 300:
+                        _LOG.warning(
+                            "Another scheduler run already in progress (pid=%s lock age %.1fs); skipping tick.",
+                            lock_pid, lock_age
+                        )
+                        elapsed = time.time() - tick_start
+                        sleep_time = max(0.0, poll_seconds - elapsed)
+                        time.sleep(sleep_time)
+                        continue
+                    else:
+                        _LOG.warning(
+                            "Stale lock detected (pid=%s age=%.1fs alive=%s); clearing.",
+                            lock_pid, lock_age, pid_alive
+                        )
+                        lock_file.unlink(missing_ok=True)
             except Exception:
                 lock_file.unlink(missing_ok=True)
 
         try:
             lock_file.parent.mkdir(parents=True, exist_ok=True)
-            lock_file.write_text(f"pid={os.getpid()}; started={started_at}")
+            lock_file.write_text(f"pid={os.getpid()}; started={started_at}; cycle={cycle}")
         except Exception:
             pass
 
@@ -1655,11 +1684,11 @@ def run_scheduler(args: argparse.Namespace, settings: Settings) -> int:
             except Exception:
                 pass
         finally:
-            if lock_file.exists():
-                try:
-                    lock_file.unlink()
-                except Exception:
-                    pass
+            try:
+                if lock_file.exists():
+                    lock_file.write_text(f"pid={os.getpid()}; idle=true; cycle={cycle}; finished={finished_at}")
+            except Exception:
+                pass
 
         if max_cycles is not None and cycle >= max_cycles:
             break
@@ -1667,15 +1696,14 @@ def run_scheduler(args: argparse.Namespace, settings: Settings) -> int:
         # S1: Fixed-rate: next tick is tick_start + 120s
         elapsed = time.time() - tick_start
         sleep_time = poll_seconds - elapsed
-        if sleep_time < 0:
-            skip_cnt = int(abs(sleep_time) // poll_seconds) + 1
-            next_sleep = poll_seconds - (abs(sleep_time) % poll_seconds)
-            _LOG.warning("Scheduler tick overrun by %.2fs; skipping %d tick(s)", abs(sleep_time), skip_cnt)
-            time.sleep(next_sleep)
+        if sleep_time <= 0:
+            _LOG.warning("Scheduler tick cycle %s took %.2fs (>= %ss); immediately starting next tick", cycle, elapsed, poll_seconds)
+            time.sleep(1.0)
         else:
             _LOG.info("Scheduler tick cycle %s took %.2fs; sleeping %.2fs until next tick", cycle, elapsed, sleep_time)
             time.sleep(sleep_time)
 
+    _cleanup_lock()
     _LOG.info("Scheduler stopped after %s cycle(s)", cycle)
     return 0
 
