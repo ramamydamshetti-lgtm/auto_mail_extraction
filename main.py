@@ -1203,9 +1203,7 @@ def process_single_message(
                 )
                 readiness = check_ui_readiness(payload)
                 is_ready = readiness.get("is_ready_for_auto_sync", False) and not should_route_review
-                is_uncertain = bool(payload.get("is_classifier_uncertain"))
-
-                if not is_ready or is_uncertain:
+                if not is_ready:
                     rev_fields = list(readiness.get("review_fields", []))
                     if review_reason and review_reason not in rev_fields:
                         rev_fields.append(review_reason)

@@ -683,9 +683,6 @@ def check_ui_readiness(validated_item: dict[str, Any]) -> dict[str, Any]:
         f for f in review_required
         if f in {
             "job_title",
-            "classifier_uncertain",
-            "table_reconciliation_conflict",
-            "idexcel_client_unresolved",
         }
     ]
 

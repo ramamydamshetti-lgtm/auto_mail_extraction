@@ -455,6 +455,26 @@ def compare_requirements(
             else:
                 scores["title"] = max(seq_ratio, jacc)
 
+        # Hard Rule 5: Distinct Job Titles without matching client ID -> NOT a duplicate
+        # Two postings with substantially different titles (title score < 0.45 and no domain token overlap)
+        # are separate job requirements, even if sent by the same client with similar email templates.
+        if not (id1 and id2 and id1 == id2):
+            t_sim = scores.get("title", 0.0)
+            generic_roles = {
+                "engineer", "developer", "specialist", "consultant", "analyst",
+                "manager", "lead", "architect", "programmer", "administrator",
+                "officer", "associate", "intern", "trainee", "expert", "executive",
+                "tech", "technician"
+            }
+            toks1 = set(re.findall(r"\b[a-zA-Z0-9]+\b", t1.lower())) - SENIORITY_KEYWORDS - generic_roles
+            toks2 = set(re.findall(r"\b[a-zA-Z0-9]+\b", t2.lower())) - SENIORITY_KEYWORDS - generic_roles
+            if not toks1 or not toks2:
+                toks1 = set(re.findall(r"\b[a-zA-Z0-9]+\b", t1.lower())) - SENIORITY_KEYWORDS
+                toks2 = set(re.findall(r"\b[a-zA-Z0-9]+\b", t2.lower())) - SENIORITY_KEYWORDS
+            common_domain = toks1 & toks2
+            if t_sim < 0.45 and not common_domain:
+                return ("NOT_DUPLICATE", 0.0, "HARD_RULE_DIFFERENT_JOB_TITLES")
+
     # 2. Skills Set Overlap (0.25)
     s1 = set(profile1.get("mandatory_skills") or []) | set(profile1.get("additional_skills") or [])
     s2 = set(profile2.get("mandatory_skills") or []) | set(profile2.get("additional_skills") or [])
