@@ -810,28 +810,33 @@ def process_single_message(
                 if thread_match:
                     break
 
-    if not thread_match:
-        req_ids = extract_req_ids_from_text(subj_raw, body_txt)
-        email_client_match = detect_client(subj_raw, body_txt, fe)
-        email_client = normalize_client_key(email_client_match.key if email_client_match else "")
-        for rid in req_ids:
-            found = store.find_requirement_by_req_id(rid)
-            if found:
-                target_req_id, target_payload = found
-                target_client = normalize_client_key(target_payload.get("requirement_from") or target_payload.get("client") or "")
-                if (
-                    target_client
-                    and email_client
-                    and target_client not in ("unknown", "idexcel_unresolved", "unresolved")
-                    and email_client not in ("unknown", "idexcel_unresolved", "unresolved")
-                    and target_client != email_client
-                ):
-                    continue
+    req_ids = extract_req_ids_from_text(subj_raw, body_txt)
+    email_client_match = detect_client(subj_raw, body_txt, fe)
+    email_client = normalize_client_key(email_client_match.key if email_client_match else "")
+
+    # Multi-requirement guard: if an email contains multiple distinct requirement IDs (e.g. demand tables),
+    # it is a multi-requirement batch/digest broadcast, NOT a single thread reply!
+    is_multi_req_batch = len(req_ids) > 1
+
+    if is_multi_req_batch:
+        thread_match = None
+    elif not thread_match and len(req_ids) == 1:
+        rid = req_ids[0]
+        found = store.find_requirement_by_req_id(rid)
+        if found:
+            target_req_id, target_payload = found
+            target_client = normalize_client_key(target_payload.get("requirement_from") or target_payload.get("client") or "")
+            if not (
+                target_client
+                and email_client
+                and target_client not in ("unknown", "idexcel_unresolved", "unresolved")
+                and email_client not in ("unknown", "idexcel_unresolved", "unresolved")
+                and target_client != email_client
+            ):
                 thread_match = found
-                break
 
     is_reply_subj = bool(re.match(r"(?i)^\s*(?:re|fwd|fw)\s*:\s*", subj_raw))
-    if not thread_match and is_reply_subj:
+    if not is_multi_req_batch and not thread_match and is_reply_subj:
         found = store.find_requirement_by_subject(subj_raw)
         if found:
             target_req_id, target_payload = found
@@ -845,45 +850,26 @@ def process_single_message(
             ):
                 thread_match = found
 
-    if thread_match:
-        target_req_id, target_payload = thread_match
-        _LOG.info(
-            "Thread match: message %s belongs to existing requirement %s (conv=%s, subj=%r)",
-            gid, target_req_id, conv_id_raw, subj_raw,
-        )
+    # Step 2: Extract requirements without burning REQ IDs
+    status, payloads, body_for_ai = extract_and_map(
+        raw,
+        token=token,
+        mailbox=mailbox,
+        settings=settings,
+        allocator=None,
+        skip_classifier=skip_classifier,
+    )
 
-        status, payloads, body_for_ai = extract_and_map(
-            raw,
-            token=token,
-            mailbox=mailbox,
-            settings=settings,
-            allocator=None,
-            skip_classifier=skip_classifier,
-        )
-
-        has_genuine_change = False
-        from metaforge_api import _field_diff
-
-        if status == "ok" and payloads:
-            for p in payloads:
-                # Match specific requirement in thread if multi-role
-                req_in_thread = store.find_requirement_by_conversation_id(
-                    conv_id_raw,
-                    title=p.get("job_title"),
-                    client_jd_id=p.get("client_jd_id"),
-                ) or (target_req_id, target_payload)
-                m_id, m_payload = req_in_thread
-                diff = _field_diff(m_payload, p)
-                if diff:
-                    _LOG.info("Genuine client change in thread for %s: %s", m_id, list(diff.keys()))
-                    store.update_requirement_fields_in_place(
-                        requirement_id=m_id,
-                        incoming_payload=p,
-                        source_email_id=gid,
-                    )
-                    has_genuine_change = True
-        else:
-            # Check if body_txt has short client change directives (e.g. rate, positions, experience)
+    if status != "ok":
+        # Check thread reply delta directives for existing requirement (short reply text with no full JD)
+        if thread_match and not is_multi_req_batch:
+            target_req_id, target_payload = thread_match
+            _LOG.info(
+                "Thread match short reply: message %s belongs to existing requirement %s (conv=%s, subj=%r)",
+                gid, target_req_id, conv_id_raw, subj_raw,
+            )
+            has_genuine_change = False
+            from metaforge_api import _field_diff
             delta_payload: dict[str, Any] = {}
             m_pos = re.search(r"(?:(?:positions?|openings?|vacanc(?:y|ies)|no\.?\s*of\s*positions?)\s*(?:is|:|=)?\s*(\d+)|\b(\d+)\s+positions?\b)", body_txt, re.I)
             if m_pos:
@@ -913,67 +899,57 @@ def process_single_message(
                     )
                     has_genuine_change = True
 
-        recv_raw = str(raw.get("receivedDateTime") or "")
-        if has_genuine_change:
-            _LOG.info("Thread reply updated existing requirement %s in-place (msg=%s)", target_req_id, gid)
-            store.pipeline_mark_synced(gid, f"thread_reply_updated:{target_req_id}")
-            store.mark_message_seen(gid, inet_id, subj_raw, source="thread_reply_update")
-            store.record_email_disposition(
-                message_id=gid,
-                graph_id=gid,
-                internet_message_id=inet_id,
-                subject=subj_raw,
-                from_email=fe,
-                received_date_time=recv_raw,
-                disposition="updated",
-                reason=f"thread_reply_updated:{target_req_id}",
-            )
-            store.log_duplicate_decision(
-                source_email_id=gid,
-                matched_requirement_id=target_req_id,
-                score=1.0,
-                deciding_rule="THREAD_REPLY_GENUINE_CHANGE",
-                decision="UPDATED",
-            )
-            if target_payload and target_payload.get("identity"):
-                store.update_identity_seen(target_payload["identity"], graph_id=gid, seen_at=recv_raw)
-            clear_log_context()
-            return 0
-        else:
-            _LOG.info("Thread reply ignored for requirement creation (no genuine change) for %s (msg=%s)", target_req_id, gid)
-            store.pipeline_mark_synced(gid, f"thread_reply_no_change:{target_req_id}")
-            store.mark_message_seen(gid, inet_id, subj_raw, source="thread_reply_no_change")
-            store.record_email_disposition(
-                message_id=gid,
-                graph_id=gid,
-                internet_message_id=inet_id,
-                subject=subj_raw,
-                from_email=fe,
-                received_date_time=recv_raw,
-                disposition="duplicate",
-                reason=f"thread_reply_no_change:{target_req_id}",
-            )
-            store.log_duplicate_decision(
-                source_email_id=gid,
-                matched_requirement_id=target_req_id,
-                score=1.0,
-                deciding_rule="THREAD_REPLY_NO_CHANGE",
-                decision="DUPLICATE",
-            )
-            if target_payload and target_payload.get("identity"):
-                store.update_identity_seen(target_payload["identity"], graph_id=gid, seen_at=recv_raw)
-            clear_log_context()
-            return 0
-
-    # Step 2: Extract requirements without burning REQ IDs
-    status, payloads, body_for_ai = extract_and_map(
-        raw,
-        token=token,
-        mailbox=mailbox,
-        settings=settings,
-        allocator=None,
-        skip_classifier=skip_classifier,
-    )
+            recv_raw = str(raw.get("receivedDateTime") or "")
+            if has_genuine_change:
+                _LOG.info("Thread reply updated existing requirement %s in-place (msg=%s)", target_req_id, gid)
+                store.pipeline_mark_synced(gid, f"thread_reply_updated:{target_req_id}")
+                store.mark_message_seen(gid, inet_id, subj_raw, source="thread_reply_update")
+                store.record_email_disposition(
+                    message_id=gid,
+                    graph_id=gid,
+                    internet_message_id=inet_id,
+                    subject=subj_raw,
+                    from_email=fe,
+                    received_date_time=recv_raw,
+                    disposition="updated",
+                    reason=f"thread_reply_updated:{target_req_id}",
+                )
+                store.log_duplicate_decision(
+                    source_email_id=gid,
+                    matched_requirement_id=target_req_id,
+                    score=1.0,
+                    deciding_rule="THREAD_REPLY_GENUINE_CHANGE",
+                    decision="UPDATED",
+                )
+                if target_payload and target_payload.get("identity"):
+                    store.update_identity_seen(target_payload["identity"], graph_id=gid, seen_at=recv_raw)
+                clear_log_context()
+                return 0
+            else:
+                _LOG.info("Thread reply ignored for requirement creation (no genuine change) for %s (msg=%s)", target_req_id, gid)
+                store.pipeline_mark_synced(gid, f"thread_reply_no_change:{target_req_id}")
+                store.mark_message_seen(gid, inet_id, subj_raw, source="thread_reply_no_change")
+                store.record_email_disposition(
+                    message_id=gid,
+                    graph_id=gid,
+                    internet_message_id=inet_id,
+                    subject=subj_raw,
+                    from_email=fe,
+                    received_date_time=recv_raw,
+                    disposition="duplicate",
+                    reason=f"thread_reply_no_change:{target_req_id}",
+                )
+                store.log_duplicate_decision(
+                    source_email_id=gid,
+                    matched_requirement_id=target_req_id,
+                    score=1.0,
+                    deciding_rule="THREAD_REPLY_NO_CHANGE",
+                    decision="DUPLICATE",
+                )
+                if target_payload and target_payload.get("identity"):
+                    store.update_identity_seen(target_payload["identity"], graph_id=gid, seen_at=recv_raw)
+                clear_log_context()
+                return 0
     if status != "ok":
         _LOG.info("SKIP %s: %s", gid, status)
         store.pipeline_mark_skipped(gid, status)
@@ -1076,6 +1052,7 @@ def process_single_message(
     ))
 
     synced_for_message = 0
+    updated_count = 0
     pending_review_count = 0
     try:
         for payload in payloads:
@@ -1106,6 +1083,20 @@ def process_single_message(
                 decision, matched_cand, score, deciding_rule = store.find_requirement_duplicate(
                     prof, rules_config=rules_cfg
                 )
+
+                if decision != "DUPLICATE" and thread_match and len(payloads) == 1:
+                    t_req_id, t_payload = thread_match
+                    t_cjd = str(t_payload.get("client_jd_id") or "").strip().lower()
+                    p_cjd = str(cjd or "").strip().lower()
+                    if not (p_cjd and t_cjd and p_cjd != t_cjd):
+                        decision = "DUPLICATE"
+                        matched_cand = {
+                            "identity": t_payload.get("identity") or t_req_id,
+                            "original_record_ref": t_req_id,
+                            "client_jd_id": t_payload.get("client_jd_id"),
+                        }
+                        score = 1.0
+                        deciding_rule = "THREAD_MATCH"
 
                 if decision == "DUPLICATE" and matched_cand:
                     matched_id = matched_cand.get("identity") or matched_cand.get("original_record_ref") or ident
@@ -1151,11 +1142,16 @@ def process_single_message(
                         )
 
                     # In-place modification: update existing requirement with new/modified fields
-                    store.update_requirement_fields_in_place(
+                    updated_ok = store.update_requirement_fields_in_place(
                         requirement_id=target_ref,
                         incoming_payload=payload,
                         source_email_id=gid,
                     )
+                    if updated_ok:
+                        updated_count += 1
+                        _LOG.info("Updated requirement %s in-place (JD/field change)", target_ref)
+                    else:
+                        _LOG.info("Requirement %s is identical duplicate - skipped", target_ref)
                     continue
 
                 if decision == "POSSIBLE_DUPLICATE" and matched_cand:
@@ -1314,7 +1310,12 @@ def process_single_message(
         return 0
 
     # Record disposition ledger row (N1) before advancing watermark (S4)
-    disp_final = "extracted" if synced_for_message > 0 else ("pending_review" if pending_review_count > 0 else "duplicate")
+    disp_final = (
+        "extracted" if synced_for_message > 0
+        else ("updated" if updated_count > 0
+        else ("pending_review" if pending_review_count > 0
+        else "duplicate"))
+    )
     store.record_email_disposition(
         message_id=gid,
         graph_id=gid,
@@ -1323,7 +1324,7 @@ def process_single_message(
         from_email=fe,
         received_date_time=recv_raw,
         disposition=disp_final,
-        requirements_count=synced_for_message,
+        requirements_count=synced_for_message + updated_count,
     )
 
     # Mark message seen in seen_messages and update watermark (S4)
@@ -1333,17 +1334,18 @@ def process_single_message(
         if not cur_wm or recv_raw > cur_wm:
             store.set_watermark(recv_raw)
 
-    if pending_review_count > 0 and synced_for_message == 0:
+    if pending_review_count > 0 and synced_for_message == 0 and updated_count == 0:
         _LOG.info("OK %s: %s requirement row(s) routed to pending_review", gid, pending_review_count)
         clear_log_context()
         return 0
 
+    total_processed = synced_for_message + updated_count
     if sync_via_task:
         store.pipeline_mark_pending_sync(gid, f"queued_sync_rows={synced_for_message}")
-        _LOG.info("OK %s: queued %s requirement row(s) for sync", gid, synced_for_message)
+        _LOG.info("OK %s: queued %s requirement row(s) for sync, %s updated", gid, synced_for_message, updated_count)
     else:
-        store.pipeline_mark_synced(gid, f"requirements={synced_for_message}")
-        _LOG.info("OK %s: synced %s requirement row(s)", gid, synced_for_message)
+        store.pipeline_mark_synced(gid, f"requirements={synced_for_message},updated={updated_count}")
+        _LOG.info("OK %s: synced %s requirement row(s), %s updated", gid, synced_for_message, updated_count)
     clear_log_context()
     return synced_for_message
 

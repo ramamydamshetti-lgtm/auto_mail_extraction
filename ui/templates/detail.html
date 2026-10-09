@@ -498,6 +498,56 @@
       {% endif %}
     </div>
 
+    <!-- Job Description Version History Card -->
+    <div class="section-card">
+      <div class="section-card-title" style="margin-bottom: 0.25rem;">Job Description Version History</div>
+      <div class="section-desc">Historical versions of the job description preserved across updates.</div>
+
+      {% set vh = item.version_history if item and item.version_history else (p.get('version_history') if p and p.get('version_history') else []) %}
+      {% if vh and vh|length > 1 %}
+        <div style="margin-top: 1rem; overflow-x: auto;">
+          {% for ver in vh|reverse %}
+          <div style="border-left: 3px solid #0284c7; padding: 0.75rem 1rem; margin-bottom: 1rem; background: #f0f9ff; border-radius: 0 6px 6px 0;">
+            <div style="font-size: 0.85rem; color: #0369a1; font-weight: 700; margin-bottom: 0.4rem; display: flex; justify-content: space-between;">
+              <span>Version {{ ver.version }} {% if loop.first %}<span style="background: #0284c7; color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">CURRENT</span>{% endif %}</span>
+              <span style="color: #64748b; font-weight: 400; font-size: 0.8rem;">
+                {{ ver.saved_at[:19].replace('T', ' ') if ver.saved_at else 'Unknown time' }}
+                {% if ver.source_email_id %}
+                  &bull; email: {{ ver.source_email_id[:16] }}...
+                {% endif %}
+              </span>
+            </div>
+            {% if ver.changes %}
+              <div style="margin-bottom: 0.5rem; font-size: 0.8rem; color: #475569;">
+                <strong>Changes:</strong>
+                {% for f_name, f_diff in ver.changes.items() %}
+                  <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 3px; margin: 2px 4px 2px 0;">
+                    {{ f_name }}
+                  </span>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if ver.job_description %}
+              <details style="margin-top: 0.5rem;">
+                <summary style="cursor: pointer; color: #0284c7; font-size: 0.8rem; font-weight: 600;">View JD Text (Version {{ ver.version }})</summary>
+                <div style="margin-top: 0.5rem; background: #ffffff; border: 1px solid #bae6fd; border-radius: 6px; padding: 0.75rem; font-size: 0.82rem; line-height: 1.5; color: #334155; white-space: pre-wrap; max-height: 300px; overflow-y: auto; font-family: monospace;">{{ ver.job_description }}</div>
+              </details>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% elif vh and vh|length == 1 %}
+        <div style="margin-top: 0.75rem; color: #64748b; font-size: 0.85rem;">
+          Initial Version 1 recorded at {{ (vh[0].saved_at[:19].replace('T', ' ')) if vh[0].saved_at else 'creation' }}. No subsequent JD revisions yet.
+        </div>
+      {% else %}
+        <div class="empty-history-box">
+          <div class="empty-title">Initial Version (v1)</div>
+          <div class="empty-subtext">When this job description is updated by a revised email, earlier versions will be preserved here in history.</div>
+        </div>
+      {% endif %}
+    </div>
+
     <!-- Status History Card -->
     <div class="section-card">
       <div class="section-card-title">Status Transition History</div>

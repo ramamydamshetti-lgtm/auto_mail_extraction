@@ -40,7 +40,7 @@ _TRACKED_FIELDS = [
     "number_of_positions", "yearly_budget", "monthly_budget",
     "mandatory_skills", "skills", "job_status", "priority",
     "experience_level", "employment_type", "client_poc",
-    "requirement_from", "demand_received_date",
+    "requirement_from", "demand_received_date", "work_mode",
 ]
 
 
@@ -245,6 +245,24 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     ]:
         if col not in existing_cols:
             conn.execute(f"ALTER TABLE metaforge_requirements ADD COLUMN {col} {ddl}")
+    # Table for job description version history
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS jd_versions (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            requirement_id   TEXT NOT NULL,
+            client_jd_id     TEXT,
+            version_number   INTEGER NOT NULL,
+            job_description  TEXT,
+            payload_json     TEXT NOT NULL,
+            changes_json     TEXT,
+            source_email_id  TEXT,
+            created_at       TEXT NOT NULL
+        )"""
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_jd_versions_req_ver ON jd_versions(requirement_id, version_number)"
+    )
+
     # Index for fast client_jd_id lookups (Rule 2)
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_mf_req_client_jd_id ON metaforge_requirements(client_jd_id)"
@@ -266,16 +284,46 @@ def _field_diff(old_payload: dict, new_payload: dict) -> dict:
     """
     changes: dict = {}
     for field in _TRACKED_FIELDS:
-        old_val = old_payload.get(field)
+        if field not in new_payload:
+            continue
         new_val = new_payload.get(field)
         # Only update if new value is genuinely provided (not None/blank)
         if new_val is None or new_val == "" or new_val == []:
             continue
-        old_norm = str(old_val).strip().lower() if old_val is not None else ""
-        new_norm = str(new_val).strip().lower()
-        if old_norm != new_norm:
+        old_val = old_payload.get(field)
+        if old_val is None or str(old_val).strip() in ("", "None", "null", "unresolved", "unknown", "—"):
             changes[field] = {"old": old_val, "new": new_val}
+            continue
+        if isinstance(new_val, list) or isinstance(old_val, list):
+            l_new = [str(x).strip().lower() for x in (new_val if isinstance(new_val, list) else [new_val]) if str(x).strip()]
+            l_old = [str(x).strip().lower() for x in (old_val if isinstance(old_val, list) else [old_val]) if str(x).strip()]
+            if set(l_new) != set(l_old):
+                changes[field] = {"old": old_val, "new": new_val}
+        else:
+            old_norm = str(old_val).strip().lower()
+            new_norm = str(new_val).strip().lower()
+            if old_norm != new_norm:
+                changes[field] = {"old": old_val, "new": new_val}
     return changes
+
+
+def check_jd_diff(old_payload: dict, new_payload: dict) -> tuple[bool, dict, str, str]:
+    """
+    Determine if the JD changed (either tracked fields or raw JD text).
+    Returns (has_changed, changes_dict, old_jd_text, new_jd_text).
+    """
+    import re
+    changes = _field_diff(old_payload, new_payload)
+    old_jd = str(old_payload.get("job_description") or old_payload.get("bodyText") or old_payload.get("body") or "").strip()
+    new_jd = str(new_payload.get("job_description") or new_payload.get("bodyText") or new_payload.get("body") or "").strip()
+    if new_jd and old_jd:
+        norm_old = re.sub(r"\s+", " ", old_jd).strip()
+        norm_new = re.sub(r"\s+", " ", new_jd).strip()
+        if norm_old != norm_new:
+            changes["job_description"] = {"old": old_jd[:500], "new": new_jd[:500]}
+    elif new_jd and not old_jd:
+        changes["job_description"] = {"old": "", "new": new_jd[:500]}
+    return bool(changes), changes, old_jd, new_jd
 
 
 IMMUTABLE_FIELDS = {
@@ -455,7 +503,9 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                                 matched = r_chk
                                 break
                         if not matched and len(c_rows) == 1:
-                            matched = c_rows[0][0]
+                            # Only fall back to single row match if client IDs do NOT conflict!
+                            if not (incoming_cjd and cand_cjd and incoming_cjd != cand_cjd):
+                                matched = c_rows[0][0]
                         if matched:
                             existing_row = matched
 
@@ -486,18 +536,17 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                     _LOG.debug("Error in whole-requirement fallback matching: %s", _ex)
 
             if existing_row is not None:
-                # --- UPDATE PATH (Rules 2-4) ---
+                # --- UPDATE PATH: Same requirement, changed or unchanged JD ---
                 stored_job_id = existing_row["job_id"]
                 try:
                     old_payload = json.loads(existing_row["payload_json"])
                 except Exception:
                     old_payload = {}
 
-                # Compute field-level diff BEFORE merging
-                changes = _field_diff(old_payload, payload)
-                if not changes:
-                    # Nothing actually changed - true duplicate, skip (Rule 2)
-                    _LOG.debug("DEDUP: client_jd_id=%s is unchanged - skipping", cjd or job_id)
+                has_changed, changes, old_jd, new_jd = check_jd_diff(old_payload, payload)
+                if not has_changed:
+                    # JD is identical: treat email as duplicate. Do not create new requirement or version.
+                    _LOG.debug("DEDUP: requirement %s is unchanged - skipping version creation", cjd or stored_job_id)
                     conn.execute("COMMIT")
                     conn.close()
                     return stored_job_id
@@ -517,6 +566,35 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                     merged["client_jd_id"] = cjd
                 if ident:
                     merged["identity"] = ident
+
+                # Manage JD Version History
+                v_hist = list(old_payload.get("version_history") or [])
+                old_ver = int(old_payload.get("jd_version") or len(v_hist) or 1)
+                if not v_hist:
+                    v1_entry = {
+                        "version": 1,
+                        "saved_at": old_payload.get("created_at") or (existing_row["created_at"] if "created_at" in existing_row.keys() else now),
+                        "source_email_id": str(old_payload.get("graphMessageId") or ""),
+                        "job_description": old_jd,
+                        "changes": {},
+                    }
+                    v_hist = [v1_entry]
+                    old_ver = 1
+
+                new_ver = old_ver + 1
+                new_version_entry = {
+                    "version": new_ver,
+                    "saved_at": now,
+                    "source_email_id": str(payload.get("graphMessageId") or ""),
+                    "job_description": new_jd or old_jd,
+                    "changes": changes,
+                }
+                v_hist.append(new_version_entry)
+                merged["version_history"] = v_hist
+                merged["jd_version"] = new_ver
+                if new_jd:
+                    merged["job_description"] = new_jd
+                    merged["bodyText"] = new_jd
 
                 # Append to field change history
                 try:
@@ -542,16 +620,54 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                         stored_job_id,
                     ),
                 )
+
+                # Persist to jd_versions table in same transaction
+                try:
+                    cur_v_cnt = conn.execute("SELECT COUNT(*) FROM jd_versions WHERE requirement_id = ?", (stored_job_id,)).fetchone()
+                    if cur_v_cnt and cur_v_cnt[0] == 0 and len(v_hist) > 1:
+                        conn.execute(
+                            """INSERT OR IGNORE INTO jd_versions
+                               (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (
+                                stored_job_id,
+                                cjd or stored_job_id,
+                                1,
+                                old_jd,
+                                json.dumps(old_payload, ensure_ascii=False),
+                                json.dumps({}, ensure_ascii=False),
+                                str(old_payload.get("graphMessageId") or ""),
+                                v_hist[0].get("saved_at") or now,
+                            ),
+                        )
+                    conn.execute(
+                        """INSERT OR REPLACE INTO jd_versions
+                           (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            stored_job_id,
+                            cjd or stored_job_id,
+                            new_ver,
+                            new_jd or old_jd,
+                            json.dumps(merged, ensure_ascii=False),
+                            json.dumps(changes, ensure_ascii=False),
+                            str(payload.get("graphMessageId") or ""),
+                            now,
+                        ),
+                    )
+                except Exception as _v_ex:
+                    _LOG.warning("Failed to record jd_version entry: %s", _v_ex)
+
                 conn.execute("COMMIT")
                 conn.close()
                 _LOG.info(
-                    "UPSERT-UPDATE job_id=%s client_jd_id=%s changed_fields=%s",
-                    stored_job_id, cjd, list(changes.keys()),
+                    "UPSERT-UPDATE job_id=%s client_jd_id=%s version=%d changed_fields=%s",
+                    stored_job_id, cjd, new_ver, list(changes.keys()),
                 )
                 return stored_job_id
 
             else:
-                # --- CREATE PATH (R1, R2, R4) ---
+                # --- CREATE PATH (R1, R2, R4): Genuinely new requirement ---
                 fa = payload.get("first_arrival_at") or payload.get("receivedDateTime") or payload.get("email_received_iso") or now
                 payload["first_arrival_at"] = fa
                 req_date = get_ist_req_date(fa)
@@ -579,6 +695,18 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                 payload["req_date"] = req_date
                 payload["seq"] = seq
 
+                # Initialize Version 1
+                initial_jd = str(payload.get("job_description") or payload.get("bodyText") or "").strip()
+                v1_entry = {
+                    "version": 1,
+                    "saved_at": now,
+                    "source_email_id": str(payload.get("graphMessageId") or ""),
+                    "job_description": initial_jd,
+                    "changes": {},
+                }
+                payload["jd_version"] = 1
+                payload["version_history"] = [v1_entry]
+
                 conn.execute(
                     """INSERT INTO metaforge_requirements
                        (job_id, payload_json, created_at, client_jd_id, updated_at, field_change_history, identity, req_date, seq)
@@ -595,6 +723,26 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                         seq,
                     ),
                 )
+
+                try:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO jd_versions
+                           (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            assigned_job_id,
+                            cjd or assigned_job_id,
+                            1,
+                            initial_jd,
+                            json.dumps(payload, ensure_ascii=False),
+                            json.dumps({}, ensure_ascii=False),
+                            str(payload.get("graphMessageId") or ""),
+                            now,
+                        ),
+                    )
+                except Exception as _v_ex:
+                    _LOG.warning("Failed to record initial jd_version: %s", _v_ex)
+
                 conn.execute("COMMIT")
                 conn.close()
                 _LOG.info("UPSERT-CREATE job_id=%s req_date=%s seq=%s client_jd_id=%s identity=%s", assigned_job_id, req_date, seq, cjd, ident)

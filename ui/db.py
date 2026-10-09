@@ -33,6 +33,15 @@ def _populate_record_cache_map(records: List[Dict[str, Any]], rule: dict, db_sig
     global _CACHE_RECORD_MAP, _CACHE_SIGNATURE
     _CACHE_RECORD_MAP.clear()
     _CACHE_SIGNATURE = db_signature
+
+    # Pass 1: Former IDs as fallback aliases only
+    for rec in records:
+        fid = rec.get("former_job_id")
+        if fid:
+            _CACHE_RECORD_MAP.setdefault(fid, rec)
+            _CACHE_RECORD_MAP.setdefault(normalize_id(fid, rule), rec)
+
+    # Pass 2: Active genuine IDs (always take absolute precedence)
     for rec in records:
         ident = rec.get("identity")
         if ident:
@@ -52,10 +61,6 @@ def _populate_record_cache_map(records: List[Dict[str, Any]], rule: dict, db_sig
         if cjd:
             _CACHE_RECORD_MAP[cjd] = rec
             _CACHE_RECORD_MAP[normalize_id(cjd, rule)] = rec
-        fid = rec.get("former_job_id")
-        if fid:
-            _CACHE_RECORD_MAP[fid] = rec
-            _CACHE_RECORD_MAP[normalize_id(fid, rule)] = rec
 
 
 def _parse_to_utc_dt(dt_val: Any) -> datetime:
@@ -423,10 +428,10 @@ def fetch_all_records(config: dict, include_archived: bool = False) -> List[Dict
 
                             prov = payload.get("_provenance") if isinstance(payload.get("_provenance"), dict) else {}
                             fa_raw = (
+                                payload.get("receivedDateTime") or
+                                prov.get("receivedDateTime") or
                                 payload.get("first_arrival_at") or
                                 prov.get("received_date_time") or
-                                prov.get("receivedDateTime") or
-                                payload.get("receivedDateTime") or
                                 payload.get("received_date_time") or
                                 payload.get("email_received_iso") or
                                 payload.get("received_at") or
@@ -846,6 +851,61 @@ def fetch_field_change_history(config: dict, target_id: str) -> List[Dict[str, A
     return all_hist
 
 
+def fetch_jd_versions(config: dict, target_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetch historical versions of the job description for target_id.
+    Queries the jd_versions table from configured databases.
+    """
+    rule = config.get("id_normalization_rule", {})
+    target_norm = normalize_id(target_id, rule)
+    if not target_norm:
+        return []
+
+    db_paths = config.get("db_paths", [])
+    versions: List[Dict[str, Any]] = []
+    seen_vers = set()
+
+    for db_path in db_paths:
+        if not os.path.exists(db_path):
+            continue
+        try:
+            conn = sqlite3.connect(f"file:{os.path.abspath(db_path)}?mode=ro", uri=True)
+            conn.row_factory = sqlite3.Row
+            try:
+                cur = conn.execute(
+                    """SELECT version_number, job_description, changes_json, source_email_id, created_at
+                       FROM jd_versions
+                       WHERE requirement_id = ? OR client_jd_id = ?
+                       ORDER BY version_number ASC""",
+                    (target_id, target_norm),
+                )
+                for r in cur.fetchall():
+                    vn = r["version_number"]
+                    if vn not in seen_vers:
+                        seen_vers.add(vn)
+                        changes = {}
+                        if r["changes_json"]:
+                            try:
+                                changes = json.loads(r["changes_json"])
+                            except Exception:
+                                changes = {}
+                        versions.append({
+                            "version": vn,
+                            "job_description": r["job_description"] or "",
+                            "changes": changes,
+                            "source_email_id": r["source_email_id"] or "",
+                            "saved_at": r["created_at"] or "",
+                        })
+            except sqlite3.OperationalError:
+                pass
+            conn.close()
+        except Exception as err:
+            _LOG.error("Failed to fetch jd_versions from %s: %s", db_path, err)
+
+    versions.sort(key=lambda v: v.get("version", 0))
+    return versions
+
+
 def update_status_in_db(config: dict, target_id: str, new_status: str, changed_by: str = "USER") -> bool:
     """
     Update requirement status from the UI.
@@ -1036,26 +1096,32 @@ def fetch_single_record_direct(config: dict, target_id: str, target_norm: str, t
                     col_info = [r[1] for r in conn.execute(f"PRAGMA table_info({tbl})").fetchall()]
                     if not col_info:
                         continue
+                    # Tier A: Direct match on active primary keys / client_jd_id / identity
+                    primary_clauses = []
+                    primary_params = []
                     for c in candidates:
-                        clauses = []
-                        params = []
                         if "job_id" in col_info:
-                            clauses.append("job_id = ?")
-                            params.append(c)
+                            primary_clauses.append("job_id = ?")
+                            primary_params.append(c)
                         if "client_jd_id" in col_info:
-                            clauses.append("client_jd_id = ?")
-                            params.append(c)
+                            primary_clauses.append("client_jd_id = ?")
+                            primary_params.append(c)
                         if "identity" in col_info:
-                            clauses.append("identity = ?")
-                            params.append(c)
-                        if "former_job_id" in col_info:
-                            clauses.append("former_job_id = ?")
-                            params.append(c)
-                        if not clauses:
-                            continue
-                        q = f"SELECT * FROM {tbl} WHERE (" + " OR ".join(clauses) + ") LIMIT 1"
-                        row = conn.execute(q, params).fetchone()
-                        if row:
+                            primary_clauses.append("identity = ?")
+                            primary_params.append(c)
+
+                    row = None
+                    if primary_clauses:
+                        q = f"SELECT * FROM {tbl} WHERE (" + " OR ".join(primary_clauses) + ") LIMIT 1"
+                        row = conn.execute(q, primary_params).fetchone()
+
+                    # Tier B: Fallback match on former_job_id ONLY if no active record matched
+                    if not row and "former_job_id" in col_info:
+                        former_clauses = ["former_job_id = ?" for _ in candidates]
+                        q = f"SELECT * FROM {tbl} WHERE (" + " OR ".join(former_clauses) + ") LIMIT 1"
+                        row = conn.execute(q, candidates).fetchone()
+
+                    if row:
                             payload = json.loads(row["payload_json"])
 
                             # Sanitize budget / budget_text so raw email dumps are never displayed
@@ -1189,6 +1255,7 @@ def fetch_single_record_direct(config: dict, target_id: str, target_norm: str, t
                             }
                             rec["status_history"] = fetch_status_history(config, target_norm) or fetch_status_history(config, internal_id)
                             rec["field_change_history"] = fetch_field_change_history(config, target_norm) or field_change_history
+                            rec["version_history"] = payload.get("version_history") or fetch_jd_versions(config, target_norm) or fetch_jd_versions(config, internal_id) or []
                             return rec
                 except sqlite3.OperationalError:
                     pass
@@ -1235,6 +1302,13 @@ def get_requirement(config: dict, target_id: str) -> Optional[Dict[str, Any]]:
                 res["field_change_history"] = fetch_field_change_history(config, target_norm)
             if not res.get("field_change_history") and matched.get("client_jd_id"):
                 res["field_change_history"] = fetch_field_change_history(config, matched["client_jd_id"])
+            if not res.get("version_history"):
+                res["version_history"] = (
+                    (res.get("payload") or {}).get("version_history")
+                    or fetch_jd_versions(config, target_norm)
+                    or (fetch_jd_versions(config, matched["raw_req_id"]) if matched.get("raw_req_id") else [])
+                    or []
+                )
             return res
 
     # Tier 2: Targeted Direct SQLite Query (Loads ONLY this single requirement in ~0.02s)
@@ -1309,6 +1383,13 @@ def get_requirement(config: dict, target_id: str) -> Optional[Dict[str, Any]]:
             res["field_change_history"] = fetch_field_change_history(config, target_norm)
         if not res.get("field_change_history") and matched.get("client_jd_id"):
             res["field_change_history"] = fetch_field_change_history(config, matched["client_jd_id"])
+        if not res.get("version_history"):
+            res["version_history"] = (
+                (res.get("payload") or {}).get("version_history")
+                or fetch_jd_versions(config, target_norm)
+                or (fetch_jd_versions(config, matched["raw_req_id"]) if matched.get("raw_req_id") else [])
+                or []
+            )
         return res
 
     return None

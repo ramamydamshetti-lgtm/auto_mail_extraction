@@ -243,7 +243,7 @@ def get_field_val(record: dict, key: str) -> Any:
 
 
 def format_received_time(dt_val: Any) -> str:
-    """Format Outlook receivedDateTime timestamp into MM/DD/YYYY hh:mm AM/PM local time (IST)."""
+    """Format Outlook receivedDateTime timestamp into DD/MM/YYYY hh:mm AM/PM local time (IST)."""
     if not dt_val:
         return "—"
     dt_str = str(dt_val).strip()
@@ -257,7 +257,7 @@ def format_received_time(dt_val: Any) -> str:
         # Date only (YYYY-MM-DD)
         if len(dt_str) == 10 and dt_str.count('-') == 2:
             dt = datetime.strptime(dt_str, '%Y-%m-%d')
-            return dt.strftime('%m/%d/%Y')
+            return dt.strftime('%b %d, %Y')
 
         # Handle ISO-8601 with Z or explicit offset
         if dt_str.endswith('Z'):
@@ -273,7 +273,7 @@ def format_received_time(dt_val: Any) -> str:
             else:
                 dt_local = dt.astimezone(ist_tz)
 
-        return dt_local.strftime('%m/%d/%Y %I:%M %p')
+        return dt_local.strftime('%b %d, %Y %I:%M %p')
     except Exception:
         return dt_str
 
@@ -447,8 +447,10 @@ def parse_sort_tuple(item: dict) -> tuple:
         req_date = ""
         req_seq = 0
 
-    fa = str(item.get("first_arrival_at") or p.get("first_arrival_at") or item.get("arr_iso") or p.get("receivedDateTime") or item.get("created_at") or "").strip()
+    fa = str(p.get("receivedDateTime") or item.get("first_arrival_at") or p.get("first_arrival_at") or item.get("arr_iso") or item.get("created_at") or "").strip()
     dt_obj = _parse_to_utc_dt(fa)
+    if not req_date and dt_obj != datetime.min.replace(tzinfo=timezone.utc):
+        req_date = dt_obj.strftime("%Y/%m/%d")
     row_id = str(item.get("raw_req_id") or req_id)
     return (req_date, req_seq, dt_obj, row_id)
 
@@ -477,12 +479,12 @@ def filter_and_sort_records(records: List[dict], q: str, client: str, status: st
     sort_clean = (sort or "").strip().lower()
     reverse = (order.lower() != "asc")  # default order is descending
 
-    if not sort_clean or sort_clean in ("req_id", "requirement", "default", "job_id"):
+    if not sort_clean or sort_clean in ("default", "req_id", "requirement", "job_id"):
         res.sort(key=parse_sort_tuple, reverse=reverse)
     elif sort_clean in ("first_arrival_at", "arr_iso", "receiveddatetime", "created_at", "sort_ts"):
         def arrival_sort_key(item):
             p = item.get("payload", {})
-            fa = str(item.get("first_arrival_at") or p.get("first_arrival_at") or item.get("arr_iso") or p.get("receivedDateTime") or item.get("created_at") or "").strip()
+            fa = str(p.get("receivedDateTime") or item.get("first_arrival_at") or p.get("first_arrival_at") or item.get("arr_iso") or item.get("created_at") or "").strip()
             return (_parse_to_utc_dt(fa), parse_sort_tuple(item))
         res.sort(key=arrival_sort_key, reverse=reverse)
     else:
@@ -588,8 +590,10 @@ def requirement_detail(req_id: str):
     if not rec:
         return render_template("error.html", code=404, message=f"Requirement '{req_id}' Not Found"), 404
     canonical_id = rec.get("req_id")
+    raw_id = rec.get("raw_req_id")
+    cjd_id = rec.get("client_jd_id")
     former_id = rec.get("former_job_id") or rec.get("payload", {}).get("former_job_id")
-    if canonical_id and req_id != canonical_id and former_id and req_id == former_id:
+    if canonical_id and req_id != canonical_id and req_id != raw_id and req_id != cjd_id and former_id and req_id == former_id:
         return redirect(url_for("requirement_detail", req_id=canonical_id), code=302)
     return render_template("detail.html", item=rec)
 

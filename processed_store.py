@@ -132,6 +132,22 @@ class ProcessedStore:
         except Exception:
             pass
         self._conn.execute(
+            """CREATE TABLE IF NOT EXISTS jd_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                requirement_id TEXT NOT NULL,
+                client_jd_id TEXT,
+                version_number INTEGER NOT NULL,
+                job_description TEXT,
+                payload_json TEXT NOT NULL,
+                changes_json TEXT,
+                source_email_id TEXT,
+                created_at TEXT NOT NULL
+            )"""
+        )
+        self._conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_proc_jd_versions_req_ver ON jd_versions(requirement_id, version_number)"
+        )
+        self._conn.execute(
             """CREATE TABLE IF NOT EXISTS status_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 requirement_id TEXT NOT NULL,
@@ -1257,10 +1273,11 @@ class ProcessedStore:
     ) -> bool:
         """
         Modify existing requirement in place when changes occur in duplicate/reply emails.
-        Ensures a requirement is stored only once, updating fields (location, experience, skills, budget, etc.)
-        and recording the changes in field_change_history.
+        Ensures a requirement is stored only once, updating fields and JD text,
+        saving the changed JD as a new version, and preserving previous JD in version history.
         """
         import json
+        import re
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc).isoformat()
         updated_any = False
@@ -1279,9 +1296,30 @@ class ProcessedStore:
         ]
 
         if mf_db.exists():
+            conn_mf = None
             try:
                 conn_mf = sqlite3.connect(mf_db)
                 conn_mf.row_factory = sqlite3.Row
+                conn_mf.execute("BEGIN IMMEDIATE")
+
+                # Ensure jd_versions table exists in mf_db
+                conn_mf.execute(
+                    """CREATE TABLE IF NOT EXISTS jd_versions (
+                        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                        requirement_id   TEXT NOT NULL,
+                        client_jd_id     TEXT,
+                        version_number   INTEGER NOT NULL,
+                        job_description  TEXT,
+                        payload_json     TEXT NOT NULL,
+                        changes_json     TEXT,
+                        source_email_id  TEXT,
+                        created_at       TEXT NOT NULL
+                    )"""
+                )
+                conn_mf.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_jd_versions_req_ver ON jd_versions(requirement_id, version_number)"
+                )
+
                 cur_mf = conn_mf.execute(
                     "SELECT job_id, client_jd_id, payload_json, field_change_history, identity FROM metaforge_requirements WHERE job_id = ? OR client_jd_id = ? OR identity = ? OR former_job_id = ?",
                     (ref, cjd or ref, ref, ref),
@@ -1314,6 +1352,9 @@ class ProcessedStore:
                                 hist = []
 
                         row_updated = False
+                        version_changes: dict[str, Any] = {}
+
+                        # 1. Check tracked requirement fields
                         for fld in fields_to_check:
                             new_val = incoming_payload.get(fld)
                             if new_val is not None and str(new_val).strip() and str(new_val).strip().lower() not in ("none", "null", "unresolved", "unknown", "—"):
@@ -1338,20 +1379,115 @@ class ProcessedStore:
                                         "changed_at": now,
                                         "source": source_email_id or "email_update",
                                     })
+                                    version_changes[fld] = {"old": old_val, "new": new_val}
                                     row_updated = True
+
+                        # 2. Check raw JD text
+                        old_jd = str(p_obj.get("job_description") or p_obj.get("bodyText") or p_obj.get("body") or "").strip()
+                        new_jd = str(incoming_payload.get("job_description") or incoming_payload.get("bodyText") or incoming_payload.get("body") or "").strip()
+                        if new_jd and old_jd:
+                            norm_old = re.sub(r"\s+", " ", old_jd).strip()
+                            norm_new = re.sub(r"\s+", " ", new_jd).strip()
+                            if norm_old != norm_new:
+                                p_obj["job_description"] = new_jd
+                                p_obj["bodyText"] = new_jd
+                                hist.append({
+                                    "field": "job_description",
+                                    "old_value": old_jd[:500],
+                                    "new_value": new_jd[:500],
+                                    "changed_at": now,
+                                    "source": source_email_id or "email_update",
+                                    "changes": {"job_description": {"old": old_jd[:500], "new": new_jd[:500]}},
+                                })
+                                version_changes["job_description"] = {"old": old_jd[:500], "new": new_jd[:500]}
+                                row_updated = True
+                        elif new_jd and not old_jd:
+                            p_obj["job_description"] = new_jd
+                            p_obj["bodyText"] = new_jd
+                            row_updated = True
 
                         if row_updated:
                             p_obj["updated_at"] = now
+                            # Manage JD versions and history
+                            v_hist = list(p_obj.get("version_history") or [])
+                            old_ver = int(p_obj.get("jd_version") or len(v_hist) or 1)
+                            if not v_hist:
+                                v1_entry = {
+                                    "version": 1,
+                                    "saved_at": p_obj.get("created_at") or (r["created_at"] if "created_at" in r.keys() else now),
+                                    "source_email_id": str(p_obj.get("graphMessageId") or ""),
+                                    "job_description": old_jd,
+                                    "changes": {},
+                                }
+                                v_hist = [v1_entry]
+                                old_ver = 1
+
+                            new_ver = old_ver + 1
+                            new_v_entry = {
+                                "version": new_ver,
+                                "saved_at": now,
+                                "source_email_id": source_email_id or "email_update",
+                                "job_description": new_jd or old_jd,
+                                "changes": version_changes,
+                            }
+                            v_hist.append(new_v_entry)
+                            p_obj["version_history"] = v_hist
+                            p_obj["jd_version"] = new_ver
+
                             conn_mf.execute(
                                 "UPDATE metaforge_requirements SET payload_json = ?, field_change_history = ?, updated_at = ? WHERE job_id = ?",
                                 (json.dumps(p_obj, ensure_ascii=False), json.dumps(hist, ensure_ascii=False), now, r_jid),
                             )
+
+                            try:
+                                cur_v_cnt = conn_mf.execute("SELECT COUNT(*) FROM jd_versions WHERE requirement_id = ?", (r_jid,)).fetchone()
+                                if cur_v_cnt and cur_v_cnt[0] == 0 and len(v_hist) > 1:
+                                    conn_mf.execute(
+                                        """INSERT OR IGNORE INTO jd_versions
+                                           (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                        (
+                                            r_jid,
+                                            cjd or r_jid,
+                                            1,
+                                            old_jd,
+                                            json.dumps(p_obj, ensure_ascii=False),
+                                            json.dumps({}, ensure_ascii=False),
+                                            str(p_obj.get("graphMessageId") or ""),
+                                            v_hist[0].get("saved_at") or now,
+                                        ),
+                                    )
+                                conn_mf.execute(
+                                    """INSERT OR REPLACE INTO jd_versions
+                                       (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    (
+                                        r_jid,
+                                        cjd or r_jid,
+                                        new_ver,
+                                        new_jd or old_jd,
+                                        json.dumps(p_obj, ensure_ascii=False),
+                                        json.dumps(version_changes, ensure_ascii=False),
+                                        source_email_id or "email_update",
+                                        now,
+                                    ),
+                                )
+                            except Exception as _vex:
+                                _LOG.warning("Failed to record jd_versions: %s", _vex)
+
                             updated_any = True
-                    except Exception:
-                        pass
+                    except Exception as e_row:
+                        _LOG.warning("Failed to process row update for %s: %s", r_jid, e_row)
+
                 conn_mf.commit()
                 conn_mf.close()
             except Exception as ex:
+                if conn_mf:
+                    try:
+                        conn_mf.execute("ROLLBACK")
+                        conn_mf.close()
+                    except Exception:
+                        pass
                 _LOG.warning("Failed to update metaforge_requirements in-place: %s", ex)
 
         # Also update client_requirements in processed_messages.db if present
@@ -1364,28 +1500,82 @@ class ProcessedStore:
             if cr_row and cr_row[1]:
                 p_cr = json.loads(cr_row[1])
                 cr_updated = False
+                cr_version_changes: dict[str, Any] = {}
                 for fld in fields_to_check:
                     new_val = incoming_payload.get(fld)
                     if new_val is not None and str(new_val).strip() and str(new_val).strip().lower() not in ("none", "null", "unresolved", "unknown", "—"):
                         old_cr_val = p_cr.get(fld)
                         if not old_cr_val or str(old_cr_val).strip() in ("", "None", "null", "unresolved", "unknown", "—"):
                             p_cr[fld] = new_val
+                            cr_version_changes[fld] = {"old": old_cr_val, "new": new_val}
                             cr_updated = True
                         elif isinstance(new_val, list) or isinstance(old_cr_val, list):
                             l_new = [str(x).strip().lower() for x in (new_val if isinstance(new_val, list) else [new_val]) if str(x).strip()]
                             l_old = [str(x).strip().lower() for x in (old_cr_val if isinstance(old_cr_val, list) else [old_cr_val]) if str(x).strip()]
                             if set(l_new) != set(l_old):
                                 p_cr[fld] = new_val
+                                cr_version_changes[fld] = {"old": old_cr_val, "new": new_val}
                                 cr_updated = True
                         elif str(new_val).strip().lower() != str(old_cr_val).strip().lower():
                             p_cr[fld] = new_val
+                            cr_version_changes[fld] = {"old": old_cr_val, "new": new_val}
                             cr_updated = True
+
+                old_cr_jd = str(p_cr.get("job_description") or p_cr.get("bodyText") or "").strip()
+                new_cr_jd = str(incoming_payload.get("job_description") or incoming_payload.get("bodyText") or "").strip()
+                if new_cr_jd and old_cr_jd:
+                    if re.sub(r"\s+", " ", old_cr_jd).strip() != re.sub(r"\s+", " ", new_cr_jd).strip():
+                        p_cr["job_description"] = new_cr_jd
+                        p_cr["bodyText"] = new_cr_jd
+                        cr_version_changes["job_description"] = {"old": old_cr_jd[:500], "new": new_cr_jd[:500]}
+                        cr_updated = True
+
                 if cr_updated:
+                    cr_v_hist = list(p_cr.get("version_history") or [])
+                    cr_old_ver = int(p_cr.get("jd_version") or len(cr_v_hist) or 1)
+                    if not cr_v_hist:
+                        cr_v_hist = [{
+                            "version": 1,
+                            "saved_at": p_cr.get("created_at") or now,
+                            "source_email_id": str(p_cr.get("graphMessageId") or ""),
+                            "job_description": old_cr_jd,
+                            "changes": {},
+                        }]
+                        cr_old_ver = 1
+                    cr_new_ver = cr_old_ver + 1
+                    cr_v_hist.append({
+                        "version": cr_new_ver,
+                        "saved_at": now,
+                        "source_email_id": source_email_id or "email_update",
+                        "job_description": new_cr_jd or old_cr_jd,
+                        "changes": cr_version_changes,
+                    })
+                    p_cr["version_history"] = cr_v_hist
+                    p_cr["jd_version"] = cr_new_ver
+
                     new_hash = self._compute_requirement_details_hash(p_cr)
                     self._conn.execute(
                         "UPDATE client_requirements SET payload_json = ?, details_hash = ?, updated_at = ? WHERE client_jd_id = ?",
                         (json.dumps(p_cr, ensure_ascii=False), new_hash, now, cr_row[0]),
                     )
+                    try:
+                        self._conn.execute(
+                            """INSERT OR REPLACE INTO jd_versions
+                               (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (
+                                cr_row[0],
+                                cr_row[0],
+                                cr_new_ver,
+                                new_cr_jd or old_cr_jd,
+                                json.dumps(p_cr, ensure_ascii=False),
+                                json.dumps(cr_version_changes, ensure_ascii=False),
+                                source_email_id or "email_update",
+                                now,
+                            ),
+                        )
+                    except Exception:
+                        pass
                     self._conn.commit()
         except Exception:
             pass
@@ -2036,6 +2226,16 @@ class ProcessedStore:
         stored_rec = self._find_existing_client_requirement(cjd)
         if not stored_rec:
             # Rule 1: Req ID never seen before -> CREATE new record
+            initial_jd = str(payload.get("job_description") or payload.get("bodyText") or "").strip()
+            v1_entry = {
+                "version": 1,
+                "saved_at": now,
+                "source_email_id": str(payload.get("graphMessageId") or ""),
+                "job_description": initial_jd,
+                "changes": {},
+            }
+            payload["jd_version"] = 1
+            payload["version_history"] = [v1_entry]
             payload_str = _json.dumps(payload, ensure_ascii=False)
             new_hash = self._compute_requirement_details_hash(payload)
             self._conn.execute(
@@ -2046,6 +2246,24 @@ class ProcessedStore:
                 (cjd, requirement_from, new_status, new_hash,
                  payload_str, now, now, _json.dumps([])),
             )
+            try:
+                self._conn.execute(
+                    """INSERT OR IGNORE INTO jd_versions
+                       (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        cjd,
+                        cjd,
+                        1,
+                        initial_jd,
+                        payload_str,
+                        _json.dumps({}),
+                        str(payload.get("graphMessageId") or ""),
+                        now,
+                    ),
+                )
+            except Exception:
+                pass
             self._conn.commit()
             return "CREATE", payload
 
@@ -2061,7 +2279,19 @@ class ProcessedStore:
         field_changes = self._field_diff(old_payload, payload)
         status_changed = (stored_status.lower() != new_status.lower())
 
-        if not field_changes and not status_changed:
+        old_cr_jd = str(old_payload.get("job_description") or old_payload.get("bodyText") or "").strip()
+        new_cr_jd = str(payload.get("job_description") or payload.get("bodyText") or "").strip()
+        jd_text_changed = False
+        if new_cr_jd and old_cr_jd:
+            import re
+            if re.sub(r"\s+", " ", old_cr_jd).strip() != re.sub(r"\s+", " ", new_cr_jd).strip():
+                jd_text_changed = True
+                field_changes["job_description"] = {"old": old_cr_jd[:500], "new": new_cr_jd[:500]}
+        elif new_cr_jd and not old_cr_jd:
+            jd_text_changed = True
+            field_changes["job_description"] = {"old": "", "new": new_cr_jd[:500]}
+
+        if not field_changes and not status_changed and not jd_text_changed:
             # True duplicate: same ID, nothing changed -> SKIP
             return "SKIP", old_payload
 
@@ -2070,6 +2300,9 @@ class ProcessedStore:
         # Rule 1: The original job_id (internal ID) never changes
         merged["job_id"] = old_payload.get("job_id") or payload.get("job_id") or ""
         merged["client_jd_id"] = cjd
+        if new_cr_jd:
+            merged["job_description"] = new_cr_jd
+            merged["bodyText"] = new_cr_jd
 
         # Rule 4: Update status in the dedicated status_history table
         if status_changed:
@@ -2081,6 +2314,29 @@ class ProcessedStore:
                 changed_by="RULE_ENGINE",
             )
             merged["job_status"] = new_status
+
+        # Manage Version History
+        cr_v_hist = list(old_payload.get("version_history") or [])
+        cr_old_ver = int(old_payload.get("jd_version") or len(cr_v_hist) or 1)
+        if not cr_v_hist:
+            cr_v_hist = [{
+                "version": 1,
+                "saved_at": old_payload.get("created_at") or now,
+                "source_email_id": str(old_payload.get("graphMessageId") or ""),
+                "job_description": old_cr_jd,
+                "changes": {},
+            }]
+            cr_old_ver = 1
+        cr_new_ver = cr_old_ver + 1
+        cr_v_hist.append({
+            "version": cr_new_ver,
+            "saved_at": now,
+            "source_email_id": str(payload.get("graphMessageId") or ""),
+            "job_description": new_cr_jd or old_cr_jd,
+            "changes": field_changes,
+        })
+        merged["version_history"] = cr_v_hist
+        merged["jd_version"] = cr_new_ver
 
         # Rule 3 para 6: Append this event to the field_change_history
         try:
@@ -2116,6 +2372,24 @@ class ProcessedStore:
                WHERE client_jd_id = ?""",
             (new_status, new_hash, merged_str, now, hist_str, cjd),
         )
+        try:
+            self._conn.execute(
+                """INSERT OR REPLACE INTO jd_versions
+                   (requirement_id, client_jd_id, version_number, job_description, payload_json, changes_json, source_email_id, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    stored_id or cjd,
+                    cjd,
+                    cr_new_ver,
+                    new_cr_jd or old_cr_jd,
+                    merged_str,
+                    _json.dumps(field_changes, ensure_ascii=False),
+                    str(payload.get("graphMessageId") or ""),
+                    now,
+                ),
+            )
+        except Exception:
+            pass
         self._conn.commit()
         return "UPDATE", merged
 

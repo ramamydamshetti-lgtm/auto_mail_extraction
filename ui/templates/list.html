@@ -137,10 +137,11 @@
         <tr>
           <th style="width: 40px; text-align: center;"><input type="checkbox" /></th>
           <th>
-            {% set next_req_order = 'asc' if (sort == 'req_id' and order == 'desc') else 'desc' %}
+            {% set is_req_sort = (sort in ['req_id', 'job_id', 'default', ''] or not sort) %}
+            {% set next_req_order = 'asc' if (is_req_sort and order == 'desc') else 'desc' %}
             <a href="?q={{ q }}&client={{ client }}&status={{ status }}&sort=req_id&order={{ next_req_order }}&page=1" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
               REQUIREMENT ID
-              {% if sort == 'req_id' or not sort or sort == 'default' %}
+              {% if is_req_sort %}
                 {% if order == 'asc' %}▲{% else %}▼{% endif %}
               {% endif %}
             </a>
@@ -153,13 +154,12 @@
           <th>PRIORITY</th>
           <th>OWNER</th>
           <th>
-            {% set next_order = 'asc' if (sort == 'first_arrival_at' or sort == 'arr_iso') and order == 'desc' else 'desc' %}
+            {% set is_arrival_sort = (sort in ['first_arrival_at', 'arr_iso', 'receiveddatetime']) %}
+            {% set next_order = 'asc' if (is_arrival_sort and order == 'desc') else 'desc' %}
             <a href="?q={{ q }}&client={{ client }}&status={{ status }}&sort=first_arrival_at&order={{ next_order }}&page=1" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
               EMAIL ARRIVED
-              {% if sort == 'first_arrival_at' or sort == 'arr_iso' %}
+              {% if is_arrival_sort %}
                 {% if order == 'asc' %}▲{% else %}▼{% endif %}
-              {% else %}
-                ▼
               {% endif %}
             </a>
           </th>
