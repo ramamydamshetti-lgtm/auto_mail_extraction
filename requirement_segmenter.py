@@ -471,16 +471,20 @@ def segment_email_into_blocks(
         except Exception as ex:
             _LOG.warning("HTML table segmentation error: %s", ex)
 
-    # 2. Text-based JD Section Segmentation (M1)
-    section_split_rx = re.compile(
-        r"(?im)^\s*(?:req(?:uirement)?\s*(?:#|no\.?|id)?\s*\d+|job\s*(?:description)?\s*\d+|role\s*\d+|position\s*\d+|\d+[\.\)]\s+[A-Z][^\n\r]{3,})\b",
+    # 2. Numbered Section Segmentation (M1)
+    # Supports numbered lists: 1. Role, 1) Role, 1 - Role, Role 1:, Requirement 1:, Position 1:, Demand 1:, etc.
+    num_split_rx = re.compile(
+        r"(?im)^\s*(?:"
+        r"(?:req(?:uirement)?\s*(?:#|no\.?|id)?\s*\d+|job\s*(?:description)?\s*\d+|role\s*\d+|position\s*\d+|demand\s*\d+|jd\s*\d+)"
+        r"|(?:\d{1,2}[\.\)\-:]|\(\d{1,2}\)|#\s*\d{1,2}[\.\)\-:]?)\s+(?:\*{0,2})(?:(?:role|job\s*title|position|requirement|req\s*id|title|jd)\s*[:\-]|[A-Za-z0-9/&+().,\- ]{3,80})"
+        r")\b"
     )
-    matches = list(section_split_rx.finditer(clean_text))
-    if len(matches) >= 2:
+    num_matches = list(num_split_rx.finditer(clean_text))
+    if len(num_matches) >= 2:
         blocks = []
-        for i, m in enumerate(matches):
+        for i, m in enumerate(num_matches):
             start = m.start()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(clean_text)
+            end = num_matches[i + 1].start() if i + 1 < len(num_matches) else len(clean_text)
             sec_text = clean_text[start:end].strip()
             if shared_context and shared_context not in sec_text:
                 sec_text = f"{shared_context.strip()}\n{sec_text}"
@@ -491,7 +495,80 @@ def segment_email_into_blocks(
             })
         return blocks
 
-    # 3. Single requirement block fallback
+    # 3. Repeated Role Headers (Unnumbered Lists)
+    # Supports multiple occurrences of Role:, Job Title:, Position:, Req ID:, etc.
+    role_hdr_rx = re.compile(
+        r"(?im)^\s*(?:\*{0,2})(?:role(?:\s*title)?|job\s*title|position(?:\s*title)?|req\s*id|client\s*req\s*id|requisition\s*id)\s*[:\-]\s*[^\n]+"
+    )
+    role_hdr_matches = list(role_hdr_rx.finditer(clean_text))
+    if len(role_hdr_matches) >= 2:
+        blocks = []
+        for i, m in enumerate(role_hdr_matches):
+            start = m.start()
+            end = role_hdr_matches[i + 1].start() if i + 1 < len(role_hdr_matches) else len(clean_text)
+            sec_text = clean_text[start:end].strip()
+            if shared_context and shared_context not in sec_text:
+                sec_text = f"{shared_context.strip()}\n{sec_text}"
+            blocks.append({
+                "block_text": sec_text,
+                "table_row_fields": None,
+                "block_index": i,
+            })
+        return blocks
+
+    # 4. Bullet-pointed Role Headings
+    # Identifies bullets that introduce distinct job roles (not simple skill bullets)
+    bullet_rx = re.compile(r"(?im)^\s*[-*•·]\s+(.+)$")
+    bullet_matches = list(bullet_rx.finditer(clean_text))
+    if len(bullet_matches) >= 2:
+        attr_rx = re.compile(
+            r"(?im)^\s*(?:experience|exp|location|skills?|mandatory\s*skills?|budget|ctc|notice(?:\s*period)?|positions?|req(?:\s*id|uirement\s*id)?)\s*[:\-]"
+        )
+        explicit_prefix_rx = re.compile(
+            r"(?i)^\s*(?:\*{0,2})(?:role|job\s*title|position|requirement|req\s*id|jd)\s*[:\-]"
+        )
+        role_bullet_matches = []
+        for i, m in enumerate(bullet_matches):
+            line_content = m.group(1).strip()
+            start = m.start()
+            end = bullet_matches[i + 1].start() if i + 1 < len(bullet_matches) else len(clean_text)
+            chunk = clean_text[m.end():end]
+            if explicit_prefix_rx.match(line_content) or attr_rx.search(chunk):
+                role_bullet_matches.append(m)
+        if len(role_bullet_matches) >= 2:
+            blocks = []
+            for i, m in enumerate(role_bullet_matches):
+                start = m.start()
+                end = role_bullet_matches[i + 1].start() if i + 1 < len(role_bullet_matches) else len(clean_text)
+                sec_text = clean_text[start:end].strip()
+                if shared_context and shared_context not in sec_text:
+                    sec_text = f"{shared_context.strip()}\n{sec_text}"
+                blocks.append({
+                    "block_text": sec_text,
+                    "table_row_fields": None,
+                    "block_index": i,
+                })
+            return blocks
+
+    # 5. Markdown Headings (### Role) or Section Dividers (---)
+    md_header_rx = re.compile(r"(?im)^\s*#{1,4}\s+[A-Za-z0-9/&+().,\- ]{3,100}")
+    md_matches = list(md_header_rx.finditer(clean_text))
+    if len(md_matches) >= 2:
+        blocks = []
+        for i, m in enumerate(md_matches):
+            start = m.start()
+            end = md_matches[i + 1].start() if i + 1 < len(md_matches) else len(clean_text)
+            sec_text = clean_text[start:end].strip()
+            if shared_context and shared_context not in sec_text:
+                sec_text = f"{shared_context.strip()}\n{sec_text}"
+            blocks.append({
+                "block_text": sec_text,
+                "table_row_fields": None,
+                "block_index": i,
+            })
+        return blocks
+
+    # 6. Single requirement block fallback
     return [{
         "block_text": clean_text,
         "table_row_fields": None,

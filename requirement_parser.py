@@ -196,7 +196,15 @@ _BUDGET_RANGE_RE = re.compile(
     r"(?i)\b(?:range\s*[-:]?\s*)?(\d+(?:\.\d+)?)\s*(?:to|-|–|—)\s*(\d+(?:\.\d+)?)\s*lpa\b"
 )
 _HIKE_RE = re.compile(r"(?i)\b(40\s*/\s*50%|50%|40%)\s*hike\b")
-_LOCATION_INLINE_RE = re.compile(r"(?i)\b([a-z]{3,30}\s*/\s*[a-z]{3,30})\b")
+_LOCATION_SLASH_TOKENS = (
+    r"bangalore|bengaluru|mumbai|pune|hyderabad|chennai|delhi|noida|gurgaon|gurugram|"
+    r"kolkata|ahmedabad|vadodara|coimbatore|kochi|indore|jaipur|mysore|mysuru|bhubaneswar|"
+    r"chandigarh|nagpur|trivandrum|thiruvananthapuram|navi\s+mumbai|rabale|airoli|whitefield|hebbal|"
+    r"electronic\s+city|remote|onsite|hybrid"
+)
+_LOCATION_INLINE_RE = re.compile(
+    rf"(?i)\b(({_LOCATION_SLASH_TOKENS})\s*/\s*({_LOCATION_SLASH_TOKENS}))\b"
+)
 _ROLE_HINT_RE = re.compile(
     r"(?i)\b([a-z][a-z0-9&/+\- ]{1,60}\b(?:developer|lead|engineer|analyst|administrator|architect|consultant))\b"
 )
@@ -256,7 +264,7 @@ _SUBJECT_TECH_SKILL_RE = re.compile(
 _EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 _PHONE_RE = re.compile(r"(?i)\b\+?\d[\d\s-]{8,}\b")
 _MULTI_JD_SIGNAL_RE = re.compile(
-    r"(?im)\b(req\s*\d+|role\s*\d+|multiple roles|roles|requirements|tables|job description\s*\d+)\b|^\s*sr\.?\s*no\.?\s*\|\s*role\b"
+    r"(?im)\b(req\s*\d+|requirement\s*\d+|role\s*\d+|multiple\s+roles|multiple\s+demands|multiple\s+requirements|open\s+demands|job description\s*\d+)\b|^\s*sr\.?\s*no\.?\s*\|\s*role\b"
 )
 _DEMAND_SIGNAL_RE = re.compile(
     r"(?i)\b(requirement|urgent drive|need profiles|request to upload|open positions?|hiring|looking for|position open)\b"
@@ -296,9 +304,11 @@ def _strip_subject_prefixes(subject: str) -> str:
 
 def _clean_job_title(title: str) -> str:
     """
-    Keep only functional role in title; strip location fragments (e.g., Mumbai/Airoli).
+    Keep only functional role in title; strip location fragments (e.g., Mumbai/Airoli)
+    and markdown headers/prefixes.
     """
-    t = re.sub(r"\s+", " ", (title or "")).strip(" .:-_|")
+    t = re.sub(r"^\s*#{1,6}\s*", "", title or "")
+    t = re.sub(r"\s+", " ", t).strip(" .:-_|#")
     if not t:
         return ""
     parts = [p.strip(" .:-_|") for p in _TITLE_LOCATION_SPLIT_RE.split(t) if p.strip(" .:-_|")]
@@ -658,7 +668,7 @@ def _extract_skill_candidates(text: str) -> list[str]:
 
     def _expand_skill_token(token: str) -> list[str]:
         t = _canon_skill(token.strip(" .:-\t\r\n"))
-        if len(t) < 2:
+        if len(t) < 2 or _is_noise_skill_candidate(t):
             return []
         out = [t]
         # Keep original form and add slash components for searchable matching.
@@ -793,6 +803,9 @@ def _is_noise_skill_candidate(skill: str) -> bool:
         "regards",
         "rgds",
         "engineering the change",
+        "highlighted",
+        "must have",
+        "customer discussion",
     )
     if any(t in low for t in noise_terms):
         return True
@@ -886,7 +899,7 @@ _ROLE_NOISE_TOKENS = {
 
 
 def _role_title_tokens(title: str) -> set[str]:
-    parts = re.split(r"[^a-z0-9+.#]+", _norm(title))
+    parts = re.split(r"[^a-z0-9+.]+", _norm(title))
     return {p for p in parts if len(p) >= 2 and p not in _ROLE_NOISE_TOKENS}
 
 
@@ -1831,30 +1844,16 @@ def parse_requirements_from_email(
     llm_model = os.getenv("LLM_MODEL", "").strip() or settings.openai_model
     api_key = gemini_key or settings.openai_api_key
 
-    if not api_key:
-        _LOG.error("ai_extraction_failed", reason="llm_api_key_missing")
-        clear_log_context()
-        return RequirementParseResult(
-            requirements=[],
-            overall_confidence=0.0,
-            processing_note="LLM api key missing (OPENAI_API_KEY or GEMINI_API_KEY)",
-        )
-
-    try:
-        from openai import OpenAI
-    except ImportError:
-        _LOG.error("ai_extraction_failed", reason="openai_package_not_installed")
-        clear_log_context()
-        return RequirementParseResult(
-            requirements=[],
-            overall_confidence=0.0,
-            processing_note="openai package not installed",
-        )
-
-    client = OpenAI(
-        api_key=api_key,
-        base_url=gemini_base or None,
-    )
+    client = None
+    if api_key:
+        try:
+            from openai import OpenAI
+            client = OpenAI(
+                api_key=api_key,
+                base_url=gemini_base or None,
+            )
+        except ImportError:
+            _LOG.warning("openai package not installed; falling back to deterministic extraction")
     from requirement_segmenter import segment_email_into_blocks
     from config import is_placeholder
 
@@ -1901,6 +1900,8 @@ def parse_requirements_from_email(
         return None
 
     def _call_model_for_block(b_text: str) -> tuple[dict[str, Any] | None, str, Any]:
+        if not client:
+            return None, "", None
         user_content = _PARSER_USER.format(
             subject=subject or "(empty)",
             body=b_text[:16000],
@@ -2005,6 +2006,58 @@ def parse_requirements_from_email(
 
         d, raw_str, _ = _call_model_for_block(cleaned_b_text)
         if not d:
+            # Deterministic rule-based extraction fallback for this block (P1, M1)
+            b_rules = _extract_rule_fields(subject, cleaned_b_text, block=cleaned_b_text)
+            b_exp, b_exp_method = _resolve_experience_conflict(cleaned_b_text)
+            b_skills = _extract_skill_candidates(cleaned_b_text)
+            b_title = b_rules.get("job_title")
+            if not b_title:
+                for line in cleaned_b_text.splitlines():
+                    tl = line.strip()
+                    if not tl:
+                        continue
+                    clean_tl = re.sub(
+                        r"^(?:#{1,6}\s*|[-*•·\d\.\)\-:]|\b(?:role|position|job\s*title|title|jd|demand)\b\s*[:\-])\s*",
+                        "",
+                        tl,
+                        flags=re.I,
+                    ).strip()
+                    clean_tl = re.sub(
+                        r"\s*\([^)]*(?:poc|lead|sirisha|tanuja|murali)[^)]*\)",
+                        "",
+                        clean_tl,
+                        flags=re.I,
+                    ).strip()
+                    if clean_tl and len(clean_tl) <= 90 and not any(
+                        k in clean_tl.lower()
+                        for k in ("hi ", "dear ", "thanks", "regards", "please", "below", "following", "experience:", "location:", "skills:")
+                    ):
+                        b_title = _clean_job_title(clean_tl)
+                        break
+            if b_title or b_skills or b_exp or b_rules.get("experience"):
+                item = RequirementItem(
+                    job_title=b_title or "",
+                    location=b_rules.get("location") if isinstance(b_rules.get("location"), list) else ([b_rules["location"]] if b_rules.get("location") else None),
+                    experience=b_exp or b_rules.get("experience"),
+                    experience_text=b_exp or b_rules.get("experience"),
+                    notice_period=b_rules.get("notice_period"),
+                    work_mode=b_rules.get("work_mode"),
+                    number_of_positions=b_rules.get("number_of_positions"),
+                    req_id=cjd or b_rules.get("req_id"),
+                    mandatory_skills=b_skills[:8] if b_skills else None,
+                    soft_skills=b_skills[8:20] if len(b_skills) > 8 else None,
+                    confidence=0.85,
+                )
+                field_sources = {}
+                field_methods = {}
+                for fn in ("job_title", "location", "experience", "budget", "notice_period", "work_mode", "number_of_positions", "req_id", "mandatory_skills", "soft_skills"):
+                    val = getattr(item, fn, None)
+                    if val is not None and not is_placeholder(val):
+                        field_sources[fn] = "email_body"
+                        field_methods[fn] = ExtractionMethodEnum.REGEX_ANCHOR
+                item.field_sources = field_sources
+                item.field_extraction_method = field_methods
+                extracted_items.append(item)
             continue
 
         jt = d.get("job_title")
@@ -2073,9 +2126,6 @@ def parse_requirements_from_email(
 
     # Hybrid extraction hardening: deterministic regex for stable fields + anti-hallucination guards.
     text_for_fields = cleaned_latest or cleaned_full or body
-    rule_fields = _extract_rule_fields(subject, text_for_fields)
-    exp_resolved, exp_method = _resolve_experience_conflict((cleaned_latest or "") + "\n" + (cleaned_full or ""))
-    skill_candidates = _extract_skill_candidates(text_for_fields)
     short_thread_mode = len((text_for_fields or "").strip()) <= 900
     clear_demand_mode = _has_clear_demand_signal(subject or "", text_for_fields or "")
     multi_role_allowed = bool(
@@ -2083,13 +2133,23 @@ def parse_requirements_from_email(
         or len(blocks) > 1
         or _has_explicit_multi_jd_signal(subject or "", text_for_fields or "")
     )
-    for item in validated.requirements:
+    for item_idx, item in enumerate(validated.requirements):
+        # P1 / Isolation: In multi-role emails, isolate extraction to the item's OWN requirement block
+        item_text = (
+            blocks[item_idx].get("block_text")
+            if (len(blocks) > 1 and item_idx < len(blocks) and blocks[item_idx].get("block_text"))
+            else text_for_fields
+        )
+        rule_fields = _extract_rule_fields(subject, item_text, block=item_text)
+        exp_resolved, exp_method = _resolve_experience_conflict(item_text)
+        skill_candidates = _extract_skill_candidates(item_text)
+
         field_conf = dict(item.field_confidence or {})
         field_sources = dict(item.field_sources or {})
         field_evidence = dict(item.field_evidence_quotes or {})
         field_method = dict(item.field_extraction_method or {})
 
-        if exp_resolved:
+        if exp_resolved and not item.experience:
             item.experience = exp_resolved
             field_sources["experience"] = "email_body"
             field_conf["experience"] = max(float(field_conf.get("experience", 0.0)), 0.95)
@@ -2248,7 +2308,7 @@ def parse_requirements_from_email(
 
         # Prioritize explicit skill-line candidates over model-proposed skills.
         merged_skills = list(item.mandatory_skills or []) + list(item.soft_skills or []) + (skill_candidates or [])
-        filtered = [s for s in merged_skills if _skill_has_evidence(s, subject, cleaned_latest or cleaned_full or body)]
+        filtered = [s for s in merged_skills if _skill_has_evidence(s, subject, item_text)]
         # Keep first seen order and split into mandatory/soft buckets for compatibility.
         uniq: list[str] = []
         seen_sk: set[str] = set()
@@ -2266,11 +2326,11 @@ def parse_requirements_from_email(
         if filtered_mandatory or filtered_soft:
             field_sources["skills"] = "email_body"
             field_conf["skills"] = max(float(field_conf.get("skills", 0.0)), 0.7)
-            field_evidence["skills"] = _best_skill_evidence(filtered_mandatory + filtered_soft, body)
+            field_evidence["skills"] = _best_skill_evidence(filtered_mandatory + filtered_soft, item_text)
             field_method["skills"] = "ai_semantic"
         else:
             if not is_strict_field_mapping():
-                hints = _extract_subject_skill_hints(subject or "", text_for_fields or "", item.job_title or "")
+                hints = _extract_subject_skill_hints(subject or "", item_text or "", item.job_title or "")
                 if hints and (short_thread_mode or clear_demand_mode):
                     item.mandatory_skills = hints[:8]
                     item.soft_skills = hints[8:12]
@@ -2290,7 +2350,7 @@ def parse_requirements_from_email(
                 field_method["skills"] = "not_found"
 
         if is_strict_field_mapping():
-            item.confidence = compute_requirement_confidence(item, block_text=text_for_fields or body)
+            item.confidence = compute_requirement_confidence(item, block_text=item_text or body)
         else:
             key_fields = (
                 float(field_conf.get("job_title", 0.0)),
@@ -2306,7 +2366,7 @@ def parse_requirements_from_email(
         item.field_extraction_method = field_method
 
         # Verify evidence quotes against source text
-        verify_evidence_quotes(item, text_for_fields)
+        verify_evidence_quotes(item, item_text)
 
         # Validate or extract client requirement ID (C1, C2)
         from client_identity_validator import is_genuine_client_id
@@ -2316,7 +2376,7 @@ def parse_requirements_from_email(
                 item.client_name,
                 item.req_id,
                 context={
-                    "text": text_for_fields,
+                    "text": item_text,
                     "subject": subject,
                     "job_title": item.job_title,
                     "location": str(item.location),
@@ -2326,7 +2386,7 @@ def parse_requirements_from_email(
             item.req_id = clean_cid if is_val else None
 
         if not item.req_id:
-            ext_cid = extract_client_jd_id_from_text(subject, text_for_fields, client=item.client_name)
+            ext_cid = extract_client_jd_id_from_text(subject, item_text, client=item.client_name)
             if ext_cid:
                 item.req_id = ext_cid
 

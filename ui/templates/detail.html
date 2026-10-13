@@ -293,6 +293,21 @@
         </div>
 
         <div class="overview-field">
+          <div class="field-label">QUALIFICATION</div>
+          <div class="field-value">{{ p.get('qualification') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">CUSTOMER DISCUSSION</div>
+          <div class="field-value">{{ p.get('customer_discussion') or p.get('customer_interview') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
+          <div class="field-label">WORKING HOURS</div>
+          <div class="field-value">{{ p.get('working_hours') or p.get('shifts') or '—' }}</div>
+        </div>
+
+        <div class="overview-field">
           <div class="field-label">OPEN SINCE</div>
           {% set o_since = p.get('receivedDateTime') or p.get('email_received_iso') or item.arr_iso or item.created_at or p.get('demand_received_date') %}
           <div class="field-value">{{ o_since|format_open_since if o_since else '—' }}</div>
@@ -315,7 +330,9 @@
           {% if m_skills and m_skills is iterable and m_skills is not string and m_skills|length > 0 %}
             <div class="skill-chips-container">
               {% for s in m_skills %}
-                <span class="skill-chip">{{ s }}</span>
+                {% if s and s|lower not in ['name', 'full name', 'full name of the candidate', 'candidate name', 'applicant name', 'vendor name', 'mail id', 'resumes sent date (ddmmyy)', 'last full time qualification'] %}
+                  <span class="skill-chip">{{ s }}</span>
+                {% endif %}
               {% endfor %}
             </div>
           {% elif m_skills and m_skills is string and m_skills.strip() %}
@@ -331,7 +348,9 @@
           {% if a_skills and a_skills is iterable and a_skills is not string and a_skills|length > 0 %}
             <div class="skill-chips-container">
               {% for s in a_skills %}
-                <span class="skill-chip skill-chip-secondary">{{ s }}</span>
+                {% if s and s|lower not in ['name', 'full name', 'full name of the candidate', 'candidate name', 'applicant name', 'vendor name', 'mail id', 'resumes sent date (ddmmyy)', 'last full time qualification'] %}
+                  <span class="skill-chip skill-chip-secondary">{{ s }}</span>
+                {% endif %}
               {% endfor %}
             </div>
           {% elif a_skills and a_skills is string and a_skills.strip() %}
@@ -348,8 +367,16 @@
           <div class="field-value">{{ p.get('overall_experience') or p.get('experience') or '—' }}</div>
         </div>
         <div class="overview-field">
+          <div class="field-label">QUALIFICATION</div>
+          <div class="field-value">{{ p.get('qualification') or '—' }}</div>
+        </div>
+        <div class="overview-field">
           <div class="field-label">NOTICE PERIOD</div>
           <div class="field-value">{{ p.get('notice_period') or '—' }}</div>
+        </div>
+        <div class="overview-field">
+          <div class="field-label">CUSTOMER DISCUSSION</div>
+          <div class="field-value">{{ p.get('customer_discussion') or p.get('customer_interview') or '—' }}</div>
         </div>
       </div>
     </div>
@@ -397,6 +424,9 @@
               ('mandatory_skills', p.get('mandatory_skills')),
               ('skills', p.get('skills')),
               ('notice_period', p.get('notice_period')),
+              ('qualification', p.get('qualification')),
+              ('customer_discussion', p.get('customer_discussion') or p.get('customer_interview')),
+              ('working_hours', p.get('working_hours') or p.get('shifts')),
               ('work_mode', p.get('work_mode_text') or p.get('work_mode'))
             ] %}
             <tr>

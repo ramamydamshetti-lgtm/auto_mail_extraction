@@ -105,7 +105,13 @@ def validate_requirement_before_save(
         (sanitized_payload, should_route_to_pending_review, review_reason)
     """
     if not is_strict_field_mapping():
-        # Legacy passthrough
+        # Clean skills even in legacy passthrough
+        for sf in ("mandatory_skills", "skills"):
+            s_list = payload.get(sf)
+            if isinstance(s_list, list):
+                from boilerplate_learner import validate_skills
+                val_sk = validate_skills(s_list, client=client or payload.get("requirement_from") or "")
+                payload[sf] = val_sk if val_sk else None
         jt = str(payload.get("job_title") or "").strip()
         should_review = not jt or is_placeholder(jt)
         return payload, should_review, ("missing_job_title" if should_review else None)

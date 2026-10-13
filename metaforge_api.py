@@ -426,22 +426,8 @@ def _sqlite_upsert(payload: dict[str, Any], db_path: str) -> str:
                 ).fetchone()
                 if row:
                     existing_row = row
-                elif cjd and cjd.lower() not in ("none", "null", "not_found", ""):
-                    norm_client = normalize_client_key(payload.get("requirement_from") or payload.get("client_key"))
-                    legacy_rows = conn.execute(
-                        "SELECT job_id, payload_json, field_change_history, identity "
-                        "FROM metaforge_requirements WHERE client_jd_id = ? AND (identity IS NULL OR identity = '')",
-                        (cjd,),
-                    ).fetchall()
-                    for l_row in legacy_rows:
-                        try:
-                            lp = json.loads(l_row["payload_json"])
-                            if normalize_client_key(lp.get("requirement_from") or lp.get("client_key")) == norm_client:
-                                existing_row = l_row
-                                break
-                        except Exception:
-                            pass
-            elif cjd and cjd.lower() not in ("none", "null", "not_found", ""):
+
+            if existing_row is None and cjd and cjd.lower() not in ("none", "null", "not_found", ""):
                 norm_client = normalize_client_key(payload.get("requirement_from") or payload.get("client_key"))
                 candidate_rows = conn.execute(
                     "SELECT job_id, payload_json, field_change_history, identity "

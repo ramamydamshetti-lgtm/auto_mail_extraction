@@ -1088,7 +1088,11 @@ def process_single_message(
                     t_req_id, t_payload = thread_match
                     t_cjd = str(t_payload.get("client_jd_id") or "").strip().lower()
                     p_cjd = str(cjd or "").strip().lower()
-                    if not (p_cjd and t_cjd and p_cjd != t_cjd):
+                    from requirement_parser import _same_role_title
+                    t_title = str(t_payload.get("job_title") or "").strip()
+                    p_title = str(payload.get("job_title") or "").strip()
+                    is_same_role = _same_role_title(t_title, p_title) if (t_title and p_title) else True
+                    if is_same_role and not (p_cjd and t_cjd and p_cjd != t_cjd):
                         decision = "DUPLICATE"
                         matched_cand = {
                             "identity": t_payload.get("identity") or t_req_id,

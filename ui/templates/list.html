@@ -206,7 +206,13 @@
               <div style="font-size: 0.75rem; color: #64748b; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                 {% set msk = p.get('mandatory_skills') %}
                 {% if msk and msk is iterable and msk is not string and msk|length > 0 %}
-                  {{ msk|join(', ') }}
+                  {% set msk_filtered = [] %}
+                  {% for s in msk %}
+                    {% if s and s|lower not in ['name', 'full name', 'full name of the candidate', 'candidate name', 'applicant name', 'vendor name', 'mail id', 'resumes sent date (ddmmyy)', 'last full time qualification'] %}
+                      {% set _ = msk_filtered.append(s) %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ msk_filtered|join(', ') }}
                 {% else %}
                   {{ msk or p.get('location') or '—' }}
                 {% endif %}

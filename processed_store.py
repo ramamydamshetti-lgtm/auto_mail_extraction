@@ -443,8 +443,17 @@ class ProcessedStore:
         client = profile.get("client") or "unknown"
         city = profile.get("city")
 
-        # Candidate query: same client, matching city (or if either city is None/unspecified)
-        if city:
+        # Candidate query: same client, matching city (or if either city is None/unspecified, or matching client_jd_id)
+        cjd = profile.get("client_jd_id")
+        if city and cjd:
+            cur = self._conn.execute(
+                """SELECT identity, client, client_jd_id, city, state, original_record_ref,
+                          profile_json, text_fingerprint, times_seen, last_seen
+                   FROM requirement_identity
+                   WHERE client = ? AND (city = ? OR city IS NULL OR city = '' OR client_jd_id = ?)""",
+                (client, city, cjd),
+            )
+        elif city:
             cur = self._conn.execute(
                 """SELECT identity, client, client_jd_id, city, state, original_record_ref,
                           profile_json, text_fingerprint, times_seen, last_seen

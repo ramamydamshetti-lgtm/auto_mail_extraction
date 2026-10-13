@@ -56,6 +56,9 @@ CANDIDATE_TEMPLATE_HEADINGS = {
     "holding any offers",
     "pan number",
     "dob",
+    "highlighted",
+    "must have",
+    "must have highlighted",
 }
 
 
@@ -594,21 +597,27 @@ def reconcile_two_way(
         # Case 3: Different values -> preserve best candidate, do not store NULL!
         elif ai_norm is not None and det_norm is not None and ai_norm != det_norm:
             if isinstance(ai_val, list) and isinstance(det_val, list):
-                merged_list = list(ai_val)
+                merged_list = [x for x in ai_val if str(x).lower().strip() not in CANDIDATE_TEMPLATE_HEADINGS]
                 for d_item in det_val:
-                    if str(d_item).lower() not in [str(x).lower() for x in merged_list]:
+                    if str(d_item).lower().strip() in CANDIDATE_TEMPLATE_HEADINGS:
+                        continue
+                    if str(d_item).lower().strip() not in [str(x).lower().strip() for x in merged_list]:
                         merged_list.append(d_item)
                 reconciled[field] = merged_list
             elif isinstance(ai_val, list) and isinstance(det_val, str):
-                if det_val.lower() in [str(x).lower() for x in ai_val]:
-                    reconciled[field] = ai_val
+                cleaned_ai = [x for x in ai_val if str(x).lower().strip() not in CANDIDATE_TEMPLATE_HEADINGS]
+                if det_val.lower().strip() in [str(x).lower().strip() for x in cleaned_ai] or det_val.lower().strip() in CANDIDATE_TEMPLATE_HEADINGS:
+                    reconciled[field] = cleaned_ai
                 else:
-                    reconciled[field] = ai_val + [det_val]
+                    reconciled[field] = cleaned_ai + [det_val]
             elif isinstance(ai_val, str) and isinstance(det_val, list):
-                if ai_val.lower() in [str(x).lower() for x in det_val]:
-                    reconciled[field] = det_val
+                cleaned_det = [x for x in det_val if str(x).lower().strip() not in CANDIDATE_TEMPLATE_HEADINGS]
+                if ai_val.lower().strip() in [str(x).lower().strip() for x in cleaned_det]:
+                    reconciled[field] = cleaned_det
+                elif ai_val.lower().strip() in CANDIDATE_TEMPLATE_HEADINGS:
+                    reconciled[field] = cleaned_det
                 else:
-                    reconciled[field] = [ai_val] + det_val
+                    reconciled[field] = [ai_val] + cleaned_det
             else:
                 reconciled[field] = ai_val
 

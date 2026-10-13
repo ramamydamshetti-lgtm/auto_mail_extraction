@@ -233,28 +233,83 @@ def clean_notice_period(np_val: Any) -> str | None:
     return s
 
 
+_CANDIDATE_HEADER_NOISE_RE = re.compile(
+    r'(?i)^\s*(?:'
+    r'name|full\s+name(?:\s+of\s+the\s+candidate)?|candidate\s+name|applicant\s+name|vendor\s+name|'
+    r'mail\s*id|email\s*id|resumes?\s+sent\s+date.*|last\s+full\s+time\s+qualification|qualification\s+criteria|'
+    r'mobile\s*(?:no|number)?|contact\s*(?:no|number)?|phone\s*(?:no|number)?|'
+    r'sl\s*no\.?|s[/\.]?r\s*no\.?|s[/\.]?r\s*num(?:ber)?\.?|s[/\.]?l\s*n(?:o|um)\.?|'
+    r'supplier\s+comments.*|total\s+exp(?:erience)?|relevant\s+exp(?:erience)?|'
+    r'np\s*\(days\)|np\s+days|notice\s+period|current\s+location|job\s+location|'
+    r'rate\s*/\s*pm.*|rate\s*/\s*hr.*|budget'
+    r')\s*[:\-–]?\s*$'
+)
+
+
+def is_skill_noise(sk_str: str) -> bool:
+    if not sk_str:
+        return True
+    s = str(sk_str).strip()
+    if not s or len(s) < 2:
+        return True
+    s_clean = re.sub(r'^\s*[-*•·–—]\s*', '', s)
+    s_clean = re.sub(r'^\s*\d{1,2}[.)\]-]\s*', '', s_clean).strip()
+    if not s_clean:
+        return True
+    low = s_clean.lower()
+    if low in {
+        "name", "full name", "full name of the candidate", "candidate name",
+        "name of the candidate", "applicant name", "vendor name", "mail id",
+        "email id", "resumes sent date (ddmmyy)", "last full time qualification",
+        "supplier comments mentioned below are mandatory while sharing the profile.",
+        "supplier comments", "qualification criteria", "contact no", "mobile no",
+    }:
+        return True
+    if _CANDIDATE_HEADER_NOISE_RE.match(s_clean):
+        return True
+    return False
+
+
 def clean_skills(skills_val: Any) -> Any:
-    """Sanitize skills list by stripping recruiter signatures, addresses, and company legal disclaimers."""
+    """Sanitize skills list by stripping candidate table headers (e.g. 'Name', 'Candidate Name'), recruiter signatures, addresses, and company legal disclaimers."""
     if not skills_val:
         return skills_val
+
+    def _sanitize_item(s_str: str) -> str | None:
+        if not s_str or len(s_str) < 2:
+            return None
+        # Drop candidate table / form header noise
+        if is_skill_noise(s_str):
+            return None
+        # Drop boilerplate prefixes/labels
+        if re.match(r'(?i)^(?:must\s*have\s*[-–]?|must-have|highlighted)$', s_str):
+            return None
+        # Clean trailing/leading artifacts like " , Highlighted"
+        s_str = re.sub(r'(?i)\s*,\s*highlighted\b', '', s_str).strip()
+        if not s_str or len(s_str) < 2 or is_skill_noise(s_str):
+            return None
+        # Only drop clear recruiter address/signature lines
+        if re.search(r'(?i)(?:pvt\s*ltd|l&t\s+technology\s+services|technology\s+services\s+ltd|karnataka\s*\d*|india\b|iso\s*27001|bhuvanappa\s+layout|crystal\s+plaza|hosur\s+road|bengaluru|tech\s+park|s1\s+building|mob(?:ile)?:\s*\+?[\d\s]+|tel:\s*\+?\d|https?://|talent\s+acquisition\b|recruiter\b|hr\s+team|rahul\s+saha|vaishnavi\s+b|kallol\s+chakraborty|partner\s+engagement|lead-talent|@[a-z0-9\.\-_]+\.[a-z]{2,}|\b\+?91\s*\d{10}\b|engineering\s+the\s+change|^engineering$|^the\s+change$|^uses$|privacy\s+notice|privacy\s+policy|safeguard\s+your\s+privacy|confidential\s+or\s+privileged|intended\s+recipient|delete\s+it\s+from\s+your\s+system)', s_str):
+            return None
+        return s_str
+
     if isinstance(skills_val, list):
         cleaned = []
         for sk in skills_val:
-            s_str = str(sk).strip()
-            if not s_str or len(s_str) < 2:
-                continue
-            # Drop boilerplate prefixes/labels
-            if re.match(r'(?i)^(?:must\s*have\s*[-–]?|must-have|highlighted)$', s_str):
-                continue
-            # Clean trailing/leading artifacts like " , Highlighted"
-            s_str = re.sub(r'(?i)\s*,\s*highlighted\b', '', s_str).strip()
-            if not s_str or len(s_str) < 2:
-                continue
-            # Only drop clear recruiter address/signature lines
-            if re.search(r'(?i)(?:pvt\s*ltd|l&t\s+technology\s+services|technology\s+services\s+ltd|karnataka\s*\d*|india\b|iso\s*27001|bhuvanappa\s+layout|crystal\s+plaza|hosur\s+road|bengaluru|tech\s+park|s1\s+building|mob(?:ile)?:\s*\+?[\d\s]+|tel:\s*\+?\d|https?://|talent\s+acquisition\b|recruiter\b|hr\s+team|rahul\s+saha|vaishnavi\s+b|kallol\s+chakraborty|partner\s+engagement|lead-talent|@[a-z0-9\.\-_]+\.[a-z]{2,}|\b\+?91\s*\d{10}\b|engineering\s+the\s+change|^engineering$|^the\s+change$|^uses$|privacy\s+notice|privacy\s+policy|safeguard\s+your\s+privacy|confidential\s+or\s+privileged|intended\s+recipient|delete\s+it\s+from\s+your\s+system)', s_str):
-                continue
-            cleaned.append(s_str)
+            s_clean = _sanitize_item(str(sk).strip())
+            if s_clean:
+                cleaned.append(s_clean)
         return cleaned
+
+    if isinstance(skills_val, str):
+        sep = ";" if ";" in skills_val else ("," if "," in skills_val else None)
+        if sep:
+            parts = [p.strip() for p in skills_val.split(sep)]
+            cleaned_parts = [_sanitize_item(p) for p in parts]
+            return f"{sep} ".join([p for p in cleaned_parts if p])
+        else:
+            return _sanitize_item(skills_val) or ""
+
     return skills_val
 
 
@@ -1139,6 +1194,14 @@ def fetch_single_record_direct(config: dict, target_id: str, target_norm: str, t
                                         payload[bk] = f"{payload.get('yearly_budget')} LPA"
                                     else:
                                         payload[bk] = None
+
+                            old_sk = payload.get("skills")
+                            if old_sk:
+                                payload["skills"] = clean_skills(old_sk)
+                            old_mand = payload.get("mandatory_skills")
+                            if old_mand:
+                                payload["mandatory_skills"] = clean_skills(old_mand)
+
                             row_keys = row.keys()
                             job_id_db = (
                                 row["job_id"] if "job_id" in row_keys else
@@ -1309,6 +1372,12 @@ def get_requirement(config: dict, target_id: str) -> Optional[Dict[str, Any]]:
                     or (fetch_jd_versions(config, matched["raw_req_id"]) if matched.get("raw_req_id") else [])
                     or []
                 )
+            if res.get("payload"):
+                p_obj = res["payload"]
+                if p_obj.get("skills"):
+                    p_obj["skills"] = clean_skills(p_obj["skills"])
+                if p_obj.get("mandatory_skills"):
+                    p_obj["mandatory_skills"] = clean_skills(p_obj["mandatory_skills"])
             return res
 
     # Tier 2: Targeted Direct SQLite Query (Loads ONLY this single requirement in ~0.02s)
@@ -1326,6 +1395,12 @@ def get_requirement(config: dict, target_id: str) -> Optional[Dict[str, Any]]:
                 _CACHE_RECORD_MAP[direct_rec["client_jd_id"]] = direct_rec
             if direct_rec.get("req_id"):
                 _CACHE_RECORD_MAP[direct_rec["req_id"]] = direct_rec
+        if direct_rec.get("payload"):
+            p_obj = direct_rec["payload"]
+            if p_obj.get("skills"):
+                p_obj["skills"] = clean_skills(p_obj["skills"])
+            if p_obj.get("mandatory_skills"):
+                p_obj["mandatory_skills"] = clean_skills(p_obj["mandatory_skills"])
         return direct_rec
 
     # Tier 3: Safety fallback to fetch_all_records only if direct lookup didn't find the record
@@ -1390,6 +1465,12 @@ def get_requirement(config: dict, target_id: str) -> Optional[Dict[str, Any]]:
                 or (fetch_jd_versions(config, matched["raw_req_id"]) if matched.get("raw_req_id") else [])
                 or []
             )
+        if res.get("payload"):
+            p_obj = res["payload"]
+            if p_obj.get("skills"):
+                p_obj["skills"] = clean_skills(p_obj["skills"])
+            if p_obj.get("mandatory_skills"):
+                p_obj["mandatory_skills"] = clean_skills(p_obj["mandatory_skills"])
         return res
 
     return None
