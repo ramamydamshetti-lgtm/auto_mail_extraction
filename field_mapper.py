@@ -794,7 +794,7 @@ def _norm_work_mode(w: str | None, body_text: str = "") -> str | None:
 
 
 def extract_min_max_experience(exp_text: str | None) -> tuple[int | None, int | None]:
-    """Rule 3: Preserve experience ranges as min/max numbers."""
+    """Preserve experience ranges, minimums, maximums, and exact years as min/max numbers."""
     if not exp_text:
         return None, None
     m = re.search(r"(\d{1,2})\s*(?:-|to|–|—)\s*(\d{1,2})", exp_text)
@@ -808,6 +808,20 @@ def extract_min_max_experience(exp_text: str | None) -> tuple[int | None, int | 
         try:
             val = int(m_plus.group(1))
             return val, None
+        except ValueError:
+            pass
+    m_min = re.search(r"(?i)\b(?:min(?:imum)?|at\s+least)\s*[:\-]?\s*(\d{1,2})", exp_text)
+    if m_min:
+        try:
+            val = int(m_min.group(1))
+            return val, None
+        except ValueError:
+            pass
+    m_max = re.search(r"(?i)\b(?:max(?:imum)?|up\s+to)\s*[:\-]?\s*(\d{1,2})", exp_text)
+    if m_max:
+        try:
+            val = int(m_max.group(1))
+            return None, val
         except ValueError:
             pass
     m_single = re.search(r"\b(\d{1,2})\b", exp_text)
@@ -1228,6 +1242,53 @@ def format_metaforge_requirement(
         result["processing_note"] = extracted["processing_note"]
     if extracted.get("reconciliation_status"):
         result["reconciliation_status"] = extracted["reconciliation_status"]
+
+    # Sanitize any unicode replacement characters in experience
+    if result.get("overall_experience"):
+        result["overall_experience"] = str(result["overall_experience"]).replace("\ufffd", "-").replace("–", "-").replace("—", "-")
+    if result.get("experience"):
+        result["experience"] = str(result["experience"]).replace("\ufffd", "-").replace("–", "-").replace("—", "-")
+    if result.get("experience_text"):
+        result["experience_text"] = str(result["experience_text"]).replace("\ufffd", "-").replace("–", "-").replace("—", "-")
+
+    # Extract metadata fields (qualification, customer_discussion, working_hours)
+    qual = extracted.get("qualification") or extracted.get("educational_qualifications") or extracted.get("education")
+    if not qual and body_text:
+        m_q = re.search(r"(?im)^\s*(?:eligibility(?:\s+criteria)?|qualification[s]?|educational\s*qualification[s]?|education)\s*[:\-]?(?:\n|\r|\s)+([^\n\r]+)", body_text)
+        if not m_q:
+            m_q = re.search(r"(?im)^\s*(?:qualification|educational\s*qualification|education)\s*[:\-]\s*(.+)$", body_text)
+        if not m_q:
+            m_q = re.search(r"(?i)\b((?:bachelor'?s?\s+degree|master'?s?\s+degree|b\.?e\.?\s*/\s*b\.?tech|b\.?e\.?|b\.?tech|m\.?e\.?|m\.?tech|diploma)\b[^\n\r.]+)", body_text)
+        if m_q:
+            qual = m_q.group(1).strip()
+    if qual:
+        result["qualification"] = qual
+        result["educational_qualifications"] = qual
+
+    cust_disc = extracted.get("customer_discussion") or extracted.get("customer_interview")
+    if not cust_disc and body_text:
+        m_cd = re.search(r"(?im)^\s*(?:customer\s*discussion|customer\s*round|customer\s*interview)\s*[:\-]\s*(.+)$", body_text)
+        if m_cd:
+            cust_disc = m_cd.group(1).strip()
+    if cust_disc:
+        result["customer_discussion"] = cust_disc
+
+    work_hrs = extracted.get("working_hours") or extracted.get("shifts")
+    if not work_hrs and body_text:
+        m_wh = re.search(r"(?im)^\s*(?:working\s*hours|work\s*hours|shift(?:s)?)\s*[:\-]\s*(.+)$", body_text)
+        if m_wh:
+            work_hrs = m_wh.group(1).strip()
+    if work_hrs:
+        result["working_hours"] = work_hrs
+
+    # Preserve all client requirement IDs found in subject/body
+    from status_tracker import extract_req_ids_from_text
+    all_rids = extract_req_ids_from_text(subj or "", body_text or "")
+    if all_rids:
+        result["all_client_jd_ids"] = all_rids
+        alt = [r for r in all_rids if r != (client_jd_id or "")]
+        if alt:
+            result["alternate_client_ids"] = alt
 
     return result
 

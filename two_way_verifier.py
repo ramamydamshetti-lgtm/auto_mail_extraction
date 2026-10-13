@@ -59,6 +59,10 @@ CANDIDATE_TEMPLATE_HEADINGS = {
     "highlighted",
     "must have",
     "must have highlighted",
+    "monthly billing rates",
+    "monthly billing rate",
+    "billing rates",
+    "billing rate",
 }
 
 
@@ -447,7 +451,7 @@ def deterministic_extract_block(block_text: str, client_name: str | None = None)
 
     # 7. Notice Period (F7)
     raw_np, quote_np = extract_label_value(FIELD_LABEL_SYNONYMS["notice_period"])
-    if raw_np and not is_placeholder(raw_np):
+    if raw_np and not is_placeholder(raw_np) and raw_np.strip().lower() not in CANDIDATE_TEMPLATE_HEADINGS:
         extracted["notice_period"] = raw_np
         quotes["notice_period"] = quote_np or raw_np
 

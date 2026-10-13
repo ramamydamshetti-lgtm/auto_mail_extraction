@@ -259,7 +259,7 @@ _SUBJECT_REQUIREMENT_TITLE_RE = re.compile(
     r"(?i)\brequirement\b\s*[-:|–—\ufffd]\s*([a-z0-9/&+().,\- ]{3,100})"
 )
 _SUBJECT_TECH_SKILL_RE = re.compile(
-    r"(?i)\b(sap(?:\s+[a-z0-9]+)?|abap|java|python|databricks|azure|salesforce|piping|kinaxis|apriso|snowflake|power\s*bi|oauth|saml|oidc|api|tester|testing|developer|engineer|analyst|consultant|checker)\b"
+    r"(?i)\b(sap(?:\s+[a-z0-9]+)?|abap|java|python|databricks|azure|salesforce|piping|kinaxis|apriso|snowflake|power\s*bi|civil\s+engineering|oauth|saml|oidc|api|tester|testing|developer|engineer|analyst|consultant|checker)\b"
 )
 _EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 _PHONE_RE = re.compile(r"(?i)\b\+?\d[\d\s-]{8,}\b")
@@ -283,6 +283,7 @@ _EXPLICIT_SKILL_TOKEN_RE = re.compile(
     r"mongodb|redis|snowflake|databricks|pyspark|spark|hadoop|tableau|power bi|"
     r"sap(?:\s+[a-z0-9]+)?|abap|odata|idoc|cds|s4hana|teamcenter|tekla|autocad|labview|"
     r"aws|azure|gcp|ec2|s3|lambda|rds|eks|ecs|cloudwatch|iam|aks|adf|synapse|devops|"
+    r"civil\s+engineering|civil|construction|project\s+monitoring|pmc|boqs?|"
     r"machine learning|signal processing|plc|emi/emc"
     r")\b"
 )
@@ -300,6 +301,16 @@ def _strip_subject_prefixes(subject: str) -> str:
             break
         s = s[m.end() :].strip()
     return s
+
+
+_DEGREE_PREFIX_RE = re.compile(
+    r"(?i)^\s*(?:"
+    r"bachelor(?:'s)?(?:\s+degree)?(?:\s+of\s+[a-zA-Z]+)?|"
+    r"master(?:'s)?(?:\s+degree)?(?:\s+of\s+[a-zA-Z]+)?|"
+    r"b\.?e\.?\s*/\s*b\.?tech\.?|b\.?e\.?|b\.?tech\.?|m\.?e\.?|m\.?tech\.?|"
+    r"b\.?sc\.?|m\.?sc\.?|bca|mca|ph\.?d\.?|diploma"
+    r")\s*(?:in|with|major\s+in)?\s*",
+)
 
 
 def _clean_job_title(title: str) -> str:
@@ -592,36 +603,103 @@ def _split_thread_chunks(body: str) -> list[str]:
 
 def _strip_candidate_tables(body: str) -> str:
     """
-    Remove candidate submission blocks so candidate PII/tables do not pollute requirement extraction.
+    Remove candidate submission templates/tables so candidate PII and template noise
+    do not pollute requirement extraction.
+    Contextually detects candidate submission tables and directives, while strictly preserving
+    all valid job descriptions, eligibility criteria, and requirement fields.
     """
-    lines = (body or "").splitlines()
+    if not body:
+        return ""
+
+    lines = body.splitlines()
     out: list[str] = []
     in_candidate_block = False
     table_lines = 0
-    for ln in lines:
-        low = _norm(ln)
-        if any(m in low for m in _CANDIDATE_TABLE_MARKERS):
-            in_candidate_block = True
-            table_lines = 0
+
+    candidate_directive_re = re.compile(
+        r"(?i)\b(?:please\s+share\s+(?:the\s+)?(?:profiles?|candidates?|resumes?)\s+(?:on|in|using|per)\s+(?:the\s+)?(?:below\s+)?(?:table|format|template)|submission\s+(?:table|format|template)|standard\s+profile\s+submission\s+template)\b"
+    )
+    section_break_re = re.compile(
+        r"(?i)^\s*(?:job\s+description|key\s+responsibilities|role\s+overview|detailed\s+jd|requirements?|required\s+skills?|open\s+positions?|role\s*\d+|requirement\s*\d+|eligibility\s+criteria)\b"
+    )
+    signoff_re = re.compile(
+        r"(?i)^\s*(?:thanks|regards|best\s+regards|sincerely|important/confidential|disclaimer)\b"
+    )
+    candidate_column_pats = [
+        r"candidate(?:\'?s)?\s+name", r"applicant(?:\'?s)?\s+name",
+        r"contact\s+no(?:mber)?", r"mobile(?:\s+no(?:mber)?)?",
+        r"email\s+id", r"mail\s+id",
+        r"total\s+exp(?:erience)?", r"relevant\s+exp(?:erience)?",
+        r"current\s+ctc", r"expected\s+ctc", r"\bcctc\b", r"\bectc\b",
+        r"current\s+(?:org(?:anization)?|company|employer)",
+        r"preferred\s+location", r"applicant\s+location",
+        r"notice\s+period", r"\blwd\b", r"last\s+working\s+day",
+        r"monthly\s+billing\s+rates?", r"billing\s+rates?",
+        r"resumes?\s+sent\s+date", r"submission\s+date",
+        r"interview\s+availability", r"\bsl\.?\s*no\b", r"\bvendo(?:r|r\s+name)\b",
+    ]
+
+    def count_cand_tokens(s: str) -> int:
+        low_s = s.lower()
+        return sum(1 for p in candidate_column_pats if re.search(r"\b" + p + r"\b", low_s))
+
+    def is_jd_prose(s: str) -> bool:
+        low_s = s.lower()
+        return bool(
+            re.search(
+                r"\b\d+\s*[-–—to\uFFFD]+\s*\d*\s*years?\b|\byears?\s+of\b|\b(?:eligibility|criteria|bachelor|master|degree|responsibilities|monitoring|construction|development|engineer|architect|lead)\b",
+                low_s,
+            )
+        )
+
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+
+        # Check if in candidate block and hit a new JD section or signoff
+        if in_candidate_block:
+            if section_break_re.match(ln) or signoff_re.match(ln):
+                in_candidate_block = False
+            elif table_lines > 50:
+                in_candidate_block = False
+
+        # Always preserve explicit Req ID / Job ID lines even if adjacent to candidate tables
+        if re.search(r"(?i)\b(?:JP[\-\s]?ID|Req[\-\s]?ID|Job[\-\s]?ID|Requisition[\-\s]?ID|Request[\-\s]?ID)\s*[:=\-#]?\s*[A-Za-z0-9_\-]+", ln):
+            out.append(ln)
+            i += 1
             continue
+
         if in_candidate_block:
             table_lines += 1
-            if (
-                low.startswith(("regards", "thanks", "important/confidential", "disclaimer"))
-                or any(k in low for k in ("requirement", "job description", "mandatory skill", "open position", "role overview", "overall exp", "qualification criteria", "tpc rate", "bill rate", "work location"))
-            ):
-                in_candidate_block = False
-            else:
-                if table_lines > 120:
-                    in_candidate_block = False
+            i += 1
+            continue
+
+        if candidate_directive_re.search(ln):
+            peek_matches = 0
+            for peek_ln in lines[i+1 : min(i+15, len(lines))]:
+                if count_cand_tokens(peek_ln) >= 1:
+                    peek_matches += 1
+            if peek_matches >= 2:
+                in_candidate_block = True
+                table_lines = 0
+                i += 1
                 continue
 
-        # Drop pure PII footer noise, but keep requirement anchors like POC lines.
-        if _EMAIL_RE.search(ln) and not any(k in low for k in ("ta poc", "poc", "spoc")):
+        tokens_on_line = count_cand_tokens(ln)
+        if tokens_on_line >= 2 and not is_jd_prose(ln):
+            in_candidate_block = True
+            table_lines = 0
+            i += 1
             continue
-        if _PHONE_RE.search(ln):
+
+        # Drop standalone pure PII footer noise (only if the line contains nothing else)
+        if re.fullmatch(r"^\s*(?:(?:mobile|phone|tel|call|email|mail)\s*[:\-]?\s*)?(?:\+?[\d\s\-]{8,}|\[REDACTED_PHONE\]|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|\[REDACTED_EMAIL\])\s*$", ln, re.I):
+            i += 1
             continue
+
         out.append(ln)
+        i += 1
+
     return "\n".join(out).strip()
 
 
@@ -747,7 +825,7 @@ def _extract_subject_skill_hints(subject: str, body: str, job_title: str) -> lis
 
     # Add core title tokens if they are explicit role words in subject/body.
     for tok in re.split(r"[^a-z0-9+.#/&]+", _norm(job_title)):
-        if len(tok) < 3 or tok in {"role", "requirement", "drive", "profiles", "open"}:
+        if len(tok) < 3 or tok in {"role", "requirement", "drive", "profiles", "open", "engineer", "developer", "lead", "analyst", "consultant"}:
             continue
         if tok not in _norm(source):
             continue
@@ -1253,7 +1331,7 @@ def extract_client_jd_id_from_text(subject: str = "", body: str = "", client: st
 
     # Pattern 1: Explicit key-value pairs (Request-ID: 203421-1, Job Posting ID - DLTJP00062540, Req ID: REQ-1234, etc.)
     p1 = re.search(
-        r"(?i)\b(?:Request[\-\s]?ID|Req[\-\s]?ID|Demand[\-\s]?ID|Job[\-\s]?Posting[\-\s]?ID|Job[\-\s]?ID|Ref[\-\s]?ID|Requirement[\-\s]?ID|Requisition[\-\s]?ID)\s*[:=\-#]?\s*([A-Za-z0-9_\-]+)",
+        r"(?i)\b(?:Request[\-\s]?ID|Req[\-\s]?ID|Demand[\-\s]?ID|Job[\-\s]?Posting[\-\s]?ID|Job[\-\s]?ID|Ref[\-\s]?ID|Requirement[\-\s]?ID|Requisition[\-\s]?ID|JP[\-\s]?ID)\s*[:=\-#]?\s*([A-Za-z0-9_\-]+)",
         text,
     )
     if p1:
@@ -2313,7 +2391,10 @@ def parse_requirements_from_email(
         uniq: list[str] = []
         seen_sk: set[str] = set()
         for sk in filtered:
-            if _is_noise_skill_candidate(sk):
+            sk_clean = _DEGREE_PREFIX_RE.sub("", sk).strip()
+            if sk_clean and not _is_noise_skill_candidate(sk_clean):
+                sk = sk_clean
+            elif _is_noise_skill_candidate(sk):
                 continue
             k = _norm(sk)
             if k and k not in seen_sk:
@@ -2321,6 +2402,11 @@ def parse_requirements_from_email(
                 uniq.append(sk)
         filtered_mandatory = uniq[: min(8, len(uniq))]
         filtered_soft = uniq[min(8, len(uniq)) : min(20, len(uniq))]
+        if not filtered_mandatory and not filtered_soft:
+            hints = _extract_subject_skill_hints(subject or "", item_text or "", item.job_title or "")
+            if hints:
+                filtered_mandatory = hints[:8]
+                filtered_soft = hints[8:12]
         item.mandatory_skills = filtered_mandatory
         item.soft_skills = filtered_soft
         if filtered_mandatory or filtered_soft:
@@ -2390,7 +2476,7 @@ def parse_requirements_from_email(
             if ext_cid:
                 item.req_id = ext_cid
 
-    # Balanced strictness: retain title-only requirements for clear short demand threads.
+    # Balanced strictness: retain requirements that have a job title and at least one core requirement field
     validated.requirements = [
         req
         for req in validated.requirements
@@ -2400,6 +2486,9 @@ def parse_requirements_from_email(
             or req.soft_skills
             or req.location
             or req.experience
+            or req.budget
+            or req.req_id
+            or getattr(req, "qualification", None)
             or (short_thread_mode and clear_demand_mode)
             or multi_role_allowed
         )

@@ -50,6 +50,8 @@ def _clear_pipeline_state(store: ProcessedStore, graph_id: str) -> None:
     store._conn.execute("DELETE FROM pipeline_state WHERE graph_id = ?", (graph_id,))
     store._conn.execute("DELETE FROM processed WHERE graph_id = ?", (graph_id,))
     store._conn.execute("DELETE FROM requirement_fingerprints WHERE graph_id = ?", (graph_id,))
+    store._conn.execute("DELETE FROM seen_messages WHERE graph_id = ?", (graph_id,))
+    store._conn.execute("DELETE FROM email_dispositions WHERE message_id = ? OR graph_id = ?", (graph_id, graph_id))
     store._conn.commit()
 
 

@@ -1301,7 +1301,8 @@ class ProcessedStore:
             "budget_currency", "number_of_positions", "location", "overall_experience",
             "overall_experience_min", "overall_experience_max",
             "work_mode", "job_title", "notice_period", "priority",
-            "experience_level", "employment_type", "job_status", "requirement_status"
+            "experience_level", "employment_type", "job_status", "requirement_status",
+            "qualification", "educational_qualifications", "customer_discussion", "working_hours"
         ]
 
         if mf_db.exists():

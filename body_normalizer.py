@@ -20,7 +20,7 @@ _CONFIDENTIAL_BLOCK = re.compile(
 )
 _EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 _PHONE_RE = re.compile(
-    r"(?<!\d)(?:\+?\d{1,3}[\s\-]?)?(?:\(?\d{3}\)?[\s\-]?)?\d{3}[\s\-]?\d{4}(?!\d)"
+    r"(?<![a-zA-Z0-9])(?:(?:\+\d{1,3}[\s\-]?)?(?:\(?\d{2,4}\)?[\s\-]?)?\d{2,4}[\s\-]?\d{3,4}[\s\-]?\d{3,4}|\(\d{3}\)[\s\-]?\d{3}[\s\-]?\d{4}|\b[6-9]\d{9}\b|\b\d{3,4}[\s\-]\d{3,4}[\s\-]\d{3,4}\b|\b\d{5}[\s\-]\d{5}\b)(?![a-zA-Z0-9])"
 )
 
 
@@ -30,8 +30,19 @@ def html_to_plain(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style"]):
         tag.decompose()
+
+    # Format table rows preserving cell columns
+    for tr in soup.find_all("tr"):
+        cells = [td.get_text(" ", strip=True) for td in tr.find_all(["td", "th"])]
+        if cells:
+            tr.replace_with(" | ".join(cells) + "\n")
+
+    # Format list items preserving bullets
+    for li in soup.find_all("li"):
+        li.replace_with("- " + li.get_text(" ", strip=True) + "\n")
+
     text = soup.get_text(separator="\n")
-    text = unescape(text)
+    text = unescape(text).replace("\ufffd", "-").replace("–", "-").replace("—", "-")
     lines = [ln.strip() for ln in text.splitlines()]
     out = "\n".join(ln for ln in lines if ln)
     return re.sub(r"\n{3,}", "\n\n", out).strip()
@@ -78,4 +89,5 @@ def normalize_body(plain: str | None, html: str | None) -> str:
     p = (plain or "").strip()
     if not p and html:
         p = html_to_plain(html)
+    p = p.replace("\ufffd", "-")
     return strip_signature_heuristic(p)
